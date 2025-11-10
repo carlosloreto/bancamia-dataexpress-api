@@ -5,6 +5,7 @@
 
 import express from 'express';
 import usersRoutes from './users.routes.js';
+import solicitudesRoutes from './solicitudes.routes.js';
 
 const router = express.Router();
 
@@ -17,6 +18,7 @@ router.get('/', (req, res) => {
     version: 'v1',
     endpoints: {
       users: '/users',
+      solicitudes: '/solicitudes',
       health: '/health'
     }
   });
@@ -26,6 +28,7 @@ router.get('/', (req, res) => {
 // Rutas de módulos
 // =====================================
 router.use('/users', usersRoutes);
+router.use('/solicitudes', solicitudesRoutes);
 
 // Agregar más rutas aquí según sea necesario
 // router.use('/products', productsRoutes);
