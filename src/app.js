@@ -1,0 +1,103 @@
+/**
+ * Configuración de la aplicación Express
+ */
+
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import { config } from './config/index.js';
+import { logger } from './lib/logger.js';
+import { errorHandler, notFoundHandler } from './lib/errors.js';
+// Usar Client SDK (temporal) en lugar de Admin SDK
+import { initializeFirestore } from './lib/firestore-client.js';
+import {
+  requestLogger,
+  validateJSON,
+  validateContentType,
+  securityHeaders
+} from './middleware/index.js';
+
+// Importar rutas
+import apiRoutes from './routes/index.js';
+
+// Inicializar Firestore
+try {
+  initializeFirestore();
+} catch (error) {
+  logger.error('Error fatal al inicializar Firestore', {
+    error: error.message
+  });
+  // En producción, podrías querer salir del proceso
+  if (config.isProduction) {
+    process.exit(1);
+  }
+}
+
+// Crear aplicación Express
+const app = express();
+
+// =====================================
+// Middlewares de seguridad
+// =====================================
+app.use(helmet()); // Headers de seguridad
+app.use(securityHeaders); // Headers adicionales
+app.use(cors()); // CORS
+
+// =====================================
+// Middlewares de parsing
+// =====================================
+app.use(express.json({ limit: '10mb' })); // Parse JSON
+app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded
+app.use(compression()); // Comprimir respuestas
+
+// =====================================
+// Middlewares personalizados
+// =====================================
+app.use(requestLogger); // Log de requests
+app.use(validateContentType); // Validar Content-Type
+
+// =====================================
+// Health check
+// =====================================
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: config.nodeEnv
+  });
+});
+
+// =====================================
+// Ruta raíz
+// =====================================
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Bancamia DataExpress API',
+    version: config.api.version,
+    status: 'running',
+    documentation: `${config.api.prefix}/${config.api.version}/docs`
+  });
+});
+
+// =====================================
+// Rutas de la API
+// =====================================
+app.use(`${config.api.prefix}/${config.api.version}`, apiRoutes);
+
+// =====================================
+// Manejo de errores
+// =====================================
+app.use(validateJSON); // Errores de JSON inválido
+app.use(notFoundHandler); // Rutas no encontradas (404)
+app.use(errorHandler); // Manejo global de errores
+
+// Log de inicio de la aplicación
+logger.info('Aplicación Express inicializada', {
+  environment: config.nodeEnv,
+  apiVersion: config.api.version
+});
+
+export default app;
+

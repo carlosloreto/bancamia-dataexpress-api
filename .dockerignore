@@ -1,0 +1,52 @@
+# ============================================
+# .dockerignore - Excluir archivos innecesarios
+# ============================================
+
+# Dependencias
+node_modules
+npm-debug.log
+
+# Archivos de entorno (se configuran en Cloud Run)
+.env
+.env.local
+.env.production
+
+# Archivos de Git
+.git
+.gitignore
+
+# Documentación y ejemplos
+*.md
+docs/
+examples/
+
+# Archivos de Firebase
+.firebase
+.firebaserc
+firebase-debug.log
+
+# Archivos de testing
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Archivos de IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Archivos temporales
+tmp/
+temp/
+*.tmp
+
+# Logs
+logs
+*.log
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+

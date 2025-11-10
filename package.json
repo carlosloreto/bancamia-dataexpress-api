@@ -1,0 +1,40 @@
+{
+  "name": "bancamia-dataexpress-api",
+  "version": "1.0.0",
+  "description": "API Express para Bancamia DataExpress",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed": "node src/scripts/seed-firestore.js",
+    "seed:force": "FORCE_SEED=true node src/scripts/seed-firestore.js",
+    "clear": "node src/scripts/clear-firestore.js",
+    "clear:force": "FORCE_CLEAR=true node src/scripts/clear-firestore.js"
+  },
+  "keywords": [
+    "express",
+    "api",
+    "rest",
+    "bancamia"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "firebase": "^12.5.0",
+    "firebase-admin": "^13.5.0",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
