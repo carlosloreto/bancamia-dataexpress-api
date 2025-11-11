@@ -33,58 +33,29 @@ export const createSolicitud = async (solicitudData) => {
   try {
     const solicitudesCollection = collection(SOLICITUDES_COLLECTION);
 
-    // Función helper mejorada para convertir a número de forma segura
-    const safeParseFloat = (value) => {
-      if (!value && value !== 0) return null;
-      const parsed = parseFloat(value);
-      // Verificar que no sea NaN, Infinity o -Infinity (Firestore no los acepta)
-      if (isNaN(parsed) || !isFinite(parsed)) return null;
-      return parsed;
+    // Función helper para convertir a booleano de forma segura
+    const safeParseBoolean = (value) => {
+      if (value === true || value === 'true') return true;
+      if (value === false || value === 'false') return false;
+      return false; // Por defecto false si no está definido o es inválido
     };
 
-    // Preparar datos de la solicitud con conversión de números y limpieza
+    // Preparar datos de la solicitud con los nuevos campos
     const newSolicitud = {
-      // 1. Información Personal
+      // Campos del formulario
+      email: solicitudData.email || '',
+      autorizacionTratamientoDatos: safeParseBoolean(solicitudData.autorizacionTratamientoDatos),
+      autorizacionContacto: safeParseBoolean(solicitudData.autorizacionContacto),
       nombreCompleto: solicitudData.nombreCompleto || '',
       tipoDocumento: solicitudData.tipoDocumento || '',
       numeroDocumento: solicitudData.numeroDocumento || '',
       fechaNacimiento: solicitudData.fechaNacimiento || '',
-      estadoCivil: solicitudData.estadoCivil || '',
-      genero: solicitudData.genero || '',
-      telefono: solicitudData.telefono || '',
-      email: solicitudData.email || '',
-      direccion: solicitudData.direccion || '',
-      ciudad: solicitudData.ciudad || '',
-      departamento: solicitudData.departamento || '',
+      fechaExpedicionDocumento: solicitudData.fechaExpedicionDocumento || '',
+      ciudadNegocio: solicitudData.ciudadNegocio || '',
+      direccionNegocio: solicitudData.direccionNegocio || '',
+      celularNegocio: solicitudData.celularNegocio || '',
 
-      // 2. Información Laboral
-      ocupacion: solicitudData.ocupacion || '',
-      empresa: solicitudData.empresa || '',
-      cargoActual: solicitudData.cargoActual || '',
-      tipoContrato: solicitudData.tipoContrato || '',
-      // Convertir a número de forma segura (evitar NaN)
-      ingresosMensuales: safeParseFloat(solicitudData.ingresosMensuales) ?? 0,
-      tiempoEmpleo: solicitudData.tiempoEmpleo || '',
-
-      // 3. Información del Crédito
-      // Convertir a número de forma segura (evitar NaN, Infinity)
-      montoSolicitado: safeParseFloat(solicitudData.montoSolicitado) ?? 0,
-      plazoMeses: safeParseFloat(solicitudData.plazoMeses) ?? 12, // Convertir a número
-      proposito: solicitudData.proposito || '',
-      tieneDeudas: solicitudData.tieneDeudas || '',
-      // Convertir a número o null (solo si tieneDeudas es "si")
-      montoDeudas: solicitudData.tieneDeudas === 'si' ? 
-        (safeParseFloat(solicitudData.montoDeudas) ?? null) : null,
-
-      // 4. Referencias Personales
-      refNombre1: solicitudData.refNombre1 || '',
-      refTelefono1: solicitudData.refTelefono1 || '',
-      refRelacion1: solicitudData.refRelacion1 || '',
-      refNombre2: solicitudData.refNombre2 || '',
-      refTelefono2: solicitudData.refTelefono2 || '',
-      refRelacion2: solicitudData.refRelacion2 || '',
-
-      // 5. Campos del sistema
+      // Campos del sistema
       userId: solicitudData.userId || null, // Firebase UID del usuario que crea la solicitud
       fechaSolicitud: FieldValue.serverTimestamp(),
       estado: 'pendiente', // Estados: pendiente, en_revision, aprobado, rechazado
@@ -97,10 +68,8 @@ export const createSolicitud = async (solicitudData) => {
       Object.entries(newSolicitud).filter(([key, value]) => {
         // Eliminar undefined
         if (value === undefined) return false;
-        // Eliminar null en campos que no deberían ser null (excepto montoDeudas)
-        if (value === null && key !== 'montoDeudas') return false;
-        // Verificar que los números no sean Infinity o -Infinity
-        if (typeof value === 'number' && !isFinite(value)) return false;
+        // Eliminar null en campos que no deberían ser null (excepto userId)
+        if (value === null && key !== 'userId') return false;
         return true;
       })
     );
@@ -274,32 +243,22 @@ export const updateSolicitud = async (id, updateData) => {
       return null;
     }
 
-    // Función helper mejorada para convertir a número de forma segura
-    const safeParseFloat = (value) => {
-      if (!value && value !== 0) return null;
-      const parsed = parseFloat(value);
-      // Verificar que no sea NaN, Infinity o -Infinity (Firestore no los acepta)
-      if (isNaN(parsed) || !isFinite(parsed)) return null;
-      return parsed;
-    };
-
-    // Convertir números si están presentes (evitar NaN, Infinity)
+    // Preparar datos para actualización
     const dataToUpdate = { ...updateData };
     
-    if (dataToUpdate.ingresosMensuales !== undefined) {
-      const parsed = safeParseFloat(dataToUpdate.ingresosMensuales);
-      dataToUpdate.ingresosMensuales = parsed !== null ? parsed : 0;
+    // Función helper para convertir a booleano de forma segura
+    const safeParseBoolean = (value) => {
+      if (value === true || value === 'true') return true;
+      if (value === false || value === 'false') return false;
+      return undefined; // Mantener undefined si no está presente
+    };
+    
+    // Convertir booleanos si están presentes
+    if (dataToUpdate.autorizacionTratamientoDatos !== undefined) {
+      dataToUpdate.autorizacionTratamientoDatos = safeParseBoolean(dataToUpdate.autorizacionTratamientoDatos);
     }
-    if (dataToUpdate.montoSolicitado !== undefined) {
-      const parsed = safeParseFloat(dataToUpdate.montoSolicitado);
-      dataToUpdate.montoSolicitado = parsed !== null ? parsed : 0;
-    }
-    if (dataToUpdate.plazoMeses !== undefined) {
-      const parsed = safeParseFloat(dataToUpdate.plazoMeses);
-      dataToUpdate.plazoMeses = parsed !== null ? parsed : 12; // Convertir a número
-    }
-    if (dataToUpdate.montoDeudas !== undefined) {
-      dataToUpdate.montoDeudas = safeParseFloat(dataToUpdate.montoDeudas);
+    if (dataToUpdate.autorizacionContacto !== undefined) {
+      dataToUpdate.autorizacionContacto = safeParseBoolean(dataToUpdate.autorizacionContacto);
     }
 
     dataToUpdate.updatedAt = FieldValue.serverTimestamp();
@@ -314,10 +273,8 @@ export const updateSolicitud = async (id, updateData) => {
       Object.entries(dataToUpdate).filter(([key, value]) => {
         // Eliminar undefined
         if (value === undefined) return false;
-        // Eliminar null en campos que no deberían ser null (excepto montoDeudas)
-        if (value === null && key !== 'montoDeudas') return false;
-        // Verificar que los números no sean Infinity o -Infinity
-        if (typeof value === 'number' && !isFinite(value)) return false;
+        // Eliminar null en campos que no deberían ser null (excepto userId)
+        if (value === null && key !== 'userId') return false;
         return true;
       })
     );

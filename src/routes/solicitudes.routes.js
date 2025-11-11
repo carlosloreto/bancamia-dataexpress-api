@@ -12,8 +12,8 @@ const router = express.Router();
 // Log para verificar que las rutas se registran
 console.log('✅ Ruta POST /solicitudes registrada');
 
-// POST /api/v1/solicitudes - Crear una nueva solicitud de crédito (requiere auth)
-router.post('/', authenticateToken, asyncHandler(solicitudesController.createSolicitud));
+// POST /api/v1/solicitudes - Crear una nueva solicitud de crédito (público, sin auth)
+router.post('/', asyncHandler(solicitudesController.createSolicitud));
 
 // GET /api/v1/solicitudes - Obtener todas las solicitudes (requiere auth, filtra por ownership)
 router.get('/', authenticateToken, asyncHandler(solicitudesController.getAllSolicitudes));

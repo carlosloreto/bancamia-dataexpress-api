@@ -14,69 +14,35 @@ const validateSolicitudData = (data) => {
   const errors = [];
   const missingFields = [];
 
-  // 1. Información Personal - Campos requeridos
-  const personalFields = [
+  // Campos requeridos del formulario
+  const requiredFields = [
+    'email',
+    'autorizacionTratamientoDatos',
+    'autorizacionContacto',
     'nombreCompleto',
     'tipoDocumento',
     'numeroDocumento',
     'fechaNacimiento',
-    'estadoCivil',
-    'genero',
-    'telefono',
-    'email',
-    'direccion',
-    'ciudad',
-    'departamento'
+    'fechaExpedicionDocumento',
+    'ciudadNegocio',
+    'direccionNegocio',
+    'celularNegocio'
   ];
 
-  // 2. Información Laboral - Campos requeridos
-  const laboralFields = [
-    'ocupacion',
-    'empresa',
-    'cargoActual',
-    'tipoContrato',
-    'ingresosMensuales',
-    'tiempoEmpleo'
-  ];
-
-  // 3. Información del Crédito - Campos requeridos
-  const creditoFields = [
-    'montoSolicitado',
-    'plazoMeses',
-    'proposito',
-    'tieneDeudas'
-  ];
-
-  // 4. Referencias Personales - Campos requeridos
-  const referenciasFields = [
-    'refNombre1',
-    'refTelefono1',
-    'refRelacion1',
-    'refNombre2',
-    'refTelefono2',
-    'refRelacion2'
-  ];
-
-  // Validar todos los campos requeridos
-  const allRequiredFields = [
-    ...personalFields,
-    ...laboralFields,
-    ...creditoFields,
-    ...referenciasFields
-  ];
-
-  allRequiredFields.forEach(field => {
-    if (!data[field] || (typeof data[field] === 'string' && data[field].trim() === '')) {
-      missingFields.push(field);
+  // Validar campos requeridos
+  requiredFields.forEach(field => {
+    // Para campos booleanos, verificar que existan (pueden ser false)
+    if (field === 'autorizacionTratamientoDatos' || field === 'autorizacionContacto') {
+      if (data[field] === undefined || data[field] === null) {
+        missingFields.push(field);
+      }
+    } else {
+      // Para campos string, verificar que no estén vacíos
+      if (!data[field] || (typeof data[field] === 'string' && data[field].trim() === '')) {
+        missingFields.push(field);
+      }
     }
   });
-
-  // Validación condicional: montoDeudas es requerido si tieneDeudas === 'si'
-  if (data.tieneDeudas === 'si') {
-    if (!data.montoDeudas || data.montoDeudas.trim() === '') {
-      missingFields.push('montoDeudas');
-    }
-  }
 
   if (missingFields.length > 0) {
     errors.push({
@@ -100,7 +66,7 @@ const validateSolicitudData = (data) => {
   }
 
   // Validar tipo de documento
-  const tiposDocumentoValidos = ['CC', 'CE', 'PA', 'TI'];
+  const tiposDocumentoValidos = ['CC', 'CE', 'PA', 'PEP', 'PPP'];
   if (data.tipoDocumento && !tiposDocumentoValidos.includes(data.tipoDocumento)) {
     errors.push({
       type: 'invalid_value',
@@ -110,132 +76,108 @@ const validateSolicitudData = (data) => {
     });
   }
 
-  // Validar estado civil
-  const estadosCivilesValidos = ['soltero', 'casado', 'union', 'divorciado', 'viudo'];
-  if (data.estadoCivil && !estadosCivilesValidos.includes(data.estadoCivil)) {
-    errors.push({
-      type: 'invalid_value',
-      field: 'estadoCivil',
-      message: 'Estado civil inválido',
-      validValues: estadosCivilesValidos
-    });
-  }
-
-  // Validar género
-  const generosValidos = ['masculino', 'femenino', 'otro'];
-  if (data.genero && !generosValidos.includes(data.genero)) {
-    errors.push({
-      type: 'invalid_value',
-      field: 'genero',
-      message: 'Género inválido',
-      validValues: generosValidos
-    });
-  }
-
-  // Validar tipo de contrato
-  const tiposContratoValidos = ['indefinido', 'fijo', 'prestacion', 'independiente'];
-  if (data.tipoContrato && !tiposContratoValidos.includes(data.tipoContrato)) {
-    errors.push({
-      type: 'invalid_value',
-      field: 'tipoContrato',
-      message: 'Tipo de contrato inválido',
-      validValues: tiposContratoValidos
-    });
-  }
-
-  // Validar tiempo de empleo
-  const tiemposEmpleoValidos = ['menos6', '6a12', '1a2', '2a5', 'mas5'];
-  if (data.tiempoEmpleo && !tiemposEmpleoValidos.includes(data.tiempoEmpleo)) {
-    errors.push({
-      type: 'invalid_value',
-      field: 'tiempoEmpleo',
-      message: 'Tiempo de empleo inválido',
-      validValues: tiemposEmpleoValidos
-    });
-  }
-
-  // Validar plazo en meses
-  const plazosValidos = ['12', '24', '36', '48', '60', '72'];
-  if (data.plazoMeses && !plazosValidos.includes(data.plazoMeses)) {
-    errors.push({
-      type: 'invalid_value',
-      field: 'plazoMeses',
-      message: 'Plazo en meses inválido',
-      validValues: plazosValidos
-    });
-  }
-
-  // Validar tieneDeudas
-  const tieneDeudasValidos = ['si', 'no'];
-  if (data.tieneDeudas && !tieneDeudasValidos.includes(data.tieneDeudas)) {
-    errors.push({
-      type: 'invalid_value',
-      field: 'tieneDeudas',
-      message: 'Valor de tieneDeudas inválido',
-      validValues: tieneDeudasValidos
-    });
-  }
-
-  // Validar que los montos sean números positivos
-  if (data.montoSolicitado) {
-    const monto = parseFloat(data.montoSolicitado);
-    if (isNaN(monto) || monto <= 0) {
+  // Validar autorizaciones (pueden ser booleanos o strings 'true'/'false')
+  if (data.autorizacionTratamientoDatos !== undefined) {
+    const isValid = typeof data.autorizacionTratamientoDatos === 'boolean' || 
+                    data.autorizacionTratamientoDatos === 'true' || 
+                    data.autorizacionTratamientoDatos === 'false';
+    if (!isValid) {
       errors.push({
         type: 'invalid_format',
-        field: 'montoSolicitado',
-        message: 'El monto solicitado debe ser un número positivo'
+        field: 'autorizacionTratamientoDatos',
+        message: 'La autorización de tratamiento de datos debe ser un valor booleano'
       });
     }
   }
 
-  if (data.ingresosMensuales) {
-    const ingresos = parseFloat(data.ingresosMensuales);
-    if (isNaN(ingresos) || ingresos <= 0) {
+  if (data.autorizacionContacto !== undefined) {
+    const isValid = typeof data.autorizacionContacto === 'boolean' || 
+                    data.autorizacionContacto === 'true' || 
+                    data.autorizacionContacto === 'false';
+    if (!isValid) {
       errors.push({
         type: 'invalid_format',
-        field: 'ingresosMensuales',
-        message: 'Los ingresos mensuales deben ser un número positivo'
+        field: 'autorizacionContacto',
+        message: 'La autorización de contacto debe ser un valor booleano'
       });
     }
   }
 
-  if (data.montoDeudas && data.tieneDeudas === 'si') {
-    const deudas = parseFloat(data.montoDeudas);
-    if (isNaN(deudas) || deudas < 0) {
-      errors.push({
-        type: 'invalid_format',
-        field: 'montoDeudas',
-        message: 'El monto de deudas debe ser un número no negativo'
-      });
-    }
-  }
-
-  // Validar fecha de nacimiento (debe ser una fecha válida y en el pasado)
+  // Validar formato de fecha (YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  
   if (data.fechaNacimiento) {
-    const fecha = new Date(data.fechaNacimiento);
-    const hoy = new Date();
-    
-    if (isNaN(fecha.getTime())) {
+    if (!dateRegex.test(data.fechaNacimiento)) {
       errors.push({
         type: 'invalid_format',
         field: 'fechaNacimiento',
-        message: 'La fecha de nacimiento no es válida'
+        message: 'La fecha de nacimiento debe tener el formato YYYY-MM-DD'
       });
-    } else if (fecha >= hoy) {
-      errors.push({
-        type: 'invalid_value',
-        field: 'fechaNacimiento',
-        message: 'La fecha de nacimiento debe ser anterior a hoy'
-      });
+    } else {
+      const fecha = new Date(data.fechaNacimiento);
+      const hoy = new Date();
+      
+      if (isNaN(fecha.getTime())) {
+        errors.push({
+          type: 'invalid_format',
+          field: 'fechaNacimiento',
+          message: 'La fecha de nacimiento no es válida'
+        });
+      } else if (fecha >= hoy) {
+        errors.push({
+          type: 'invalid_value',
+          field: 'fechaNacimiento',
+          message: 'La fecha de nacimiento debe ser anterior a hoy'
+        });
+      }
+      
+      // Validar edad mínima (18 años)
+      const edad = Math.floor((hoy - fecha) / (365.25 * 24 * 60 * 60 * 1000));
+      if (edad < 18) {
+        errors.push({
+          type: 'invalid_value',
+          field: 'fechaNacimiento',
+          message: 'El solicitante debe ser mayor de 18 años'
+        });
+      }
     }
-    
-    // Validar edad mínima (18 años)
-    const edad = Math.floor((hoy - fecha) / (365.25 * 24 * 60 * 60 * 1000));
-    if (edad < 18) {
+  }
+
+  if (data.fechaExpedicionDocumento) {
+    if (!dateRegex.test(data.fechaExpedicionDocumento)) {
       errors.push({
-        type: 'invalid_value',
-        field: 'fechaNacimiento',
-        message: 'El solicitante debe ser mayor de 18 años'
+        type: 'invalid_format',
+        field: 'fechaExpedicionDocumento',
+        message: 'La fecha de expedición del documento debe tener el formato YYYY-MM-DD'
+      });
+    } else {
+      const fecha = new Date(data.fechaExpedicionDocumento);
+      const hoy = new Date();
+      
+      if (isNaN(fecha.getTime())) {
+        errors.push({
+          type: 'invalid_format',
+          field: 'fechaExpedicionDocumento',
+          message: 'La fecha de expedición del documento no es válida'
+        });
+      } else if (fecha > hoy) {
+        errors.push({
+          type: 'invalid_value',
+          field: 'fechaExpedicionDocumento',
+          message: 'La fecha de expedición del documento no puede ser futura'
+        });
+      }
+    }
+  }
+
+  // Validar formato de teléfono (celularNegocio)
+  if (data.celularNegocio) {
+    const phoneRegex = /^[0-9+\-\s()]+$/;
+    if (!phoneRegex.test(data.celularNegocio)) {
+      errors.push({
+        type: 'invalid_format',
+        field: 'celularNegocio',
+        message: 'El formato del celular del negocio es inválido'
       });
     }
   }
@@ -389,9 +331,25 @@ export const updateSolicitud = async (req, res) => {
     throw new AuthorizationError('No tienes permiso para actualizar esta solicitud');
   }
   
-  // Si se están actualizando campos, validar
+  // Si se están actualizando campos, validar solo formato (no campos faltantes)
   if (Object.keys(updateData).length > 0) {
-    const validationErrors = validateSolicitudData({ ...updateData, email: updateData.email || 'temp@temp.com' });
+    // Crear objeto temporal con valores por defecto para validar formato
+    const tempData = {
+      email: updateData.email || 'temp@temp.com',
+      autorizacionTratamientoDatos: updateData.autorizacionTratamientoDatos !== undefined ? updateData.autorizacionTratamientoDatos : true,
+      autorizacionContacto: updateData.autorizacionContacto !== undefined ? updateData.autorizacionContacto : true,
+      nombreCompleto: updateData.nombreCompleto || 'temp',
+      tipoDocumento: updateData.tipoDocumento || 'CC',
+      numeroDocumento: updateData.numeroDocumento || '123456789',
+      fechaNacimiento: updateData.fechaNacimiento || '1990-01-01',
+      fechaExpedicionDocumento: updateData.fechaExpedicionDocumento || '2010-01-01',
+      ciudadNegocio: updateData.ciudadNegocio || '201',
+      direccionNegocio: updateData.direccionNegocio || 'temp',
+      celularNegocio: updateData.celularNegocio || '3001234567',
+      ...updateData
+    };
+    
+    const validationErrors = validateSolicitudData(tempData);
     // Filtrar solo errores de formato, no de campos faltantes
     const formatErrors = validationErrors.filter(err => err.type !== 'missing_fields');
     
