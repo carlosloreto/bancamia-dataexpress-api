@@ -33,49 +33,54 @@ export const createSolicitud = async (solicitudData) => {
   try {
     const solicitudesCollection = collection(SOLICITUDES_COLLECTION);
 
-    // Preparar datos de la solicitud con conversión de números
+    // Función helper para convertir a número de forma segura
+    const safeParseFloat = (value) => {
+      if (!value && value !== 0) return null;
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? null : parsed;
+    };
+
+    // Preparar datos de la solicitud con conversión de números y limpieza
     const newSolicitud = {
       // 1. Información Personal
-      nombreCompleto: solicitudData.nombreCompleto,
-      tipoDocumento: solicitudData.tipoDocumento,
-      numeroDocumento: solicitudData.numeroDocumento,
-      fechaNacimiento: solicitudData.fechaNacimiento,
-      estadoCivil: solicitudData.estadoCivil,
-      genero: solicitudData.genero,
-      telefono: solicitudData.telefono,
-      email: solicitudData.email,
-      direccion: solicitudData.direccion,
-      ciudad: solicitudData.ciudad,
-      departamento: solicitudData.departamento,
+      nombreCompleto: solicitudData.nombreCompleto || '',
+      tipoDocumento: solicitudData.tipoDocumento || '',
+      numeroDocumento: solicitudData.numeroDocumento || '',
+      fechaNacimiento: solicitudData.fechaNacimiento || '',
+      estadoCivil: solicitudData.estadoCivil || '',
+      genero: solicitudData.genero || '',
+      telefono: solicitudData.telefono || '',
+      email: solicitudData.email || '',
+      direccion: solicitudData.direccion || '',
+      ciudad: solicitudData.ciudad || '',
+      departamento: solicitudData.departamento || '',
 
       // 2. Información Laboral
-      ocupacion: solicitudData.ocupacion,
-      empresa: solicitudData.empresa,
-      cargoActual: solicitudData.cargoActual,
-      tipoContrato: solicitudData.tipoContrato,
-      // Convertir a número para mejor rendimiento en Firestore
-      ingresosMensuales: solicitudData.ingresosMensuales ? 
-        parseFloat(solicitudData.ingresosMensuales) : 0,
-      tiempoEmpleo: solicitudData.tiempoEmpleo,
+      ocupacion: solicitudData.ocupacion || '',
+      empresa: solicitudData.empresa || '',
+      cargoActual: solicitudData.cargoActual || '',
+      tipoContrato: solicitudData.tipoContrato || '',
+      // Convertir a número de forma segura (evitar NaN)
+      ingresosMensuales: safeParseFloat(solicitudData.ingresosMensuales) ?? 0,
+      tiempoEmpleo: solicitudData.tiempoEmpleo || '',
 
       // 3. Información del Crédito
-      // Convertir a número para mejor rendimiento en Firestore
-      montoSolicitado: solicitudData.montoSolicitado ? 
-        parseFloat(solicitudData.montoSolicitado) : 0,
-      plazoMeses: solicitudData.plazoMeses,
-      proposito: solicitudData.proposito,
-      tieneDeudas: solicitudData.tieneDeudas,
-      // Convertir a número o null
-      montoDeudas: solicitudData.montoDeudas ? 
-        parseFloat(solicitudData.montoDeudas) : null,
+      // Convertir a número de forma segura (evitar NaN)
+      montoSolicitado: safeParseFloat(solicitudData.montoSolicitado) ?? 0,
+      plazoMeses: solicitudData.plazoMeses || '',
+      proposito: solicitudData.proposito || '',
+      tieneDeudas: solicitudData.tieneDeudas || '',
+      // Convertir a número o null (solo si tieneDeudas es "si")
+      montoDeudas: solicitudData.tieneDeudas === 'si' ? 
+        (safeParseFloat(solicitudData.montoDeudas) ?? null) : null,
 
       // 4. Referencias Personales
-      refNombre1: solicitudData.refNombre1,
-      refTelefono1: solicitudData.refTelefono1,
-      refRelacion1: solicitudData.refRelacion1,
-      refNombre2: solicitudData.refNombre2,
-      refTelefono2: solicitudData.refTelefono2,
-      refRelacion2: solicitudData.refRelacion2,
+      refNombre1: solicitudData.refNombre1 || '',
+      refTelefono1: solicitudData.refTelefono1 || '',
+      refRelacion1: solicitudData.refRelacion1 || '',
+      refNombre2: solicitudData.refNombre2 || '',
+      refTelefono2: solicitudData.refTelefono2 || '',
+      refRelacion2: solicitudData.refRelacion2 || '',
 
       // 5. Campos del sistema
       fechaSolicitud: FieldValue.serverTimestamp(),
@@ -84,13 +89,19 @@ export const createSolicitud = async (solicitudData) => {
       updatedAt: FieldValue.serverTimestamp()
     };
 
+    // Limpiar el objeto: eliminar campos undefined (Firestore no los acepta)
+    const cleanedSolicitud = Object.fromEntries(
+      Object.entries(newSolicitud).filter(([_, value]) => value !== undefined)
+    );
+
     // Guardar en Firestore (una sola operación)
-    const docRef = await addDoc(solicitudesCollection, newSolicitud);
+    // Usar el objeto limpiado para evitar valores undefined
+    const docRef = await addDoc(solicitudesCollection, cleanedSolicitud);
 
     logger.info('Solicitud de crédito creada en Firestore', {
       id: docRef.id,
-      numeroDocumento: newSolicitud.numeroDocumento,
-      email: newSolicitud.email
+      numeroDocumento: cleanedSolicitud.numeroDocumento,
+      email: cleanedSolicitud.email
     });
 
     // Construir respuesta directamente sin leer de nuevo (OPTIMIZACIÓN)
@@ -98,7 +109,7 @@ export const createSolicitud = async (solicitudData) => {
     const now = new Date().toISOString();
     
     // Crear copia sin FieldValue objects para la respuesta
-    const responseData = { ...newSolicitud };
+    const responseData = { ...cleanedSolicitud };
     responseData.fechaSolicitud = now;
     responseData.createdAt = now;
     responseData.updatedAt = now;
@@ -245,18 +256,26 @@ export const updateSolicitud = async (id, updateData) => {
       return null;
     }
 
-    // Convertir números si están presentes
+    // Función helper para convertir a número de forma segura
+    const safeParseFloat = (value) => {
+      if (!value && value !== 0) return null;
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? null : parsed;
+    };
+
+    // Convertir números si están presentes (evitar NaN)
     const dataToUpdate = { ...updateData };
     
-    if (dataToUpdate.ingresosMensuales) {
-      dataToUpdate.ingresosMensuales = parseFloat(dataToUpdate.ingresosMensuales);
+    if (dataToUpdate.ingresosMensuales !== undefined) {
+      const parsed = safeParseFloat(dataToUpdate.ingresosMensuales);
+      dataToUpdate.ingresosMensuales = parsed !== null ? parsed : 0;
     }
-    if (dataToUpdate.montoSolicitado) {
-      dataToUpdate.montoSolicitado = parseFloat(dataToUpdate.montoSolicitado);
+    if (dataToUpdate.montoSolicitado !== undefined) {
+      const parsed = safeParseFloat(dataToUpdate.montoSolicitado);
+      dataToUpdate.montoSolicitado = parsed !== null ? parsed : 0;
     }
     if (dataToUpdate.montoDeudas !== undefined) {
-      dataToUpdate.montoDeudas = dataToUpdate.montoDeudas ? 
-        parseFloat(dataToUpdate.montoDeudas) : null;
+      dataToUpdate.montoDeudas = safeParseFloat(dataToUpdate.montoDeudas);
     }
 
     dataToUpdate.updatedAt = FieldValue.serverTimestamp();
@@ -266,7 +285,12 @@ export const updateSolicitud = async (id, updateData) => {
     delete dataToUpdate.createdAt;
     delete dataToUpdate.fechaSolicitud;
 
-    await updateDoc(solicitudDocRef, dataToUpdate);
+    // Limpiar el objeto: eliminar campos undefined (Firestore no los acepta)
+    const cleanedUpdate = Object.fromEntries(
+      Object.entries(dataToUpdate).filter(([_, value]) => value !== undefined)
+    );
+
+    await updateDoc(solicitudDocRef, cleanedUpdate);
 
     logger.info('Solicitud actualizada en Firestore', {
       id,

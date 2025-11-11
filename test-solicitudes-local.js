@@ -125,19 +125,33 @@ async function testCrearSolicitud() {
       }, 60000); // 60 segundos de timeout
       
       log(`📥 Status: ${response.status} ${response.statusText}`, 'cyan');
-      log(`📋 Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`, 'cyan');
+      
+      // Leer el body solo una vez
+      let responseText;
+      try {
+        responseText = await response.text();
+      } catch (e) {
+        throw new Error(`Error al leer respuesta: ${e.message}`);
+      }
       
       if (!response.ok) {
         let errorData;
         try {
-          errorData = await response.json();
+          errorData = JSON.parse(responseText);
         } catch (e) {
-          errorData = { message: await response.text() };
+          errorData = { message: responseText || `HTTP ${response.status} ${response.statusText}` };
         }
         throw new Error(JSON.stringify(errorData, null, 2));
       }
       
-      const data = await response.json();
+      // Parsear JSON solo si la respuesta fue exitosa
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Error al parsear JSON: ${e.message}. Respuesta: ${responseText.substring(0, 200)}`);
+      }
+      
       return data;
     } catch (err) {
       log(`❌ Error en fetch: ${err.message}`, 'red');
