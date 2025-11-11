@@ -85,6 +85,7 @@ export const createSolicitud = async (solicitudData) => {
       refRelacion2: solicitudData.refRelacion2 || '',
 
       // 5. Campos del sistema
+      userId: solicitudData.userId || null, // Firebase UID del usuario que crea la solicitud
       fechaSolicitud: FieldValue.serverTimestamp(),
       estado: 'pendiente', // Estados: pendiente, en_revision, aprobado, rechazado
       createdAt: FieldValue.serverTimestamp(),
@@ -148,15 +149,22 @@ export const createSolicitud = async (solicitudData) => {
  * Obtiene lista de solicitudes con paginación y búsqueda
  * OPTIMIZADO: Usa límites de Firestore y orderBy en lugar de cargar todo en memoria
  */
-export const getSolicitudes = async ({ page = 1, limit: pageLimit = 10, search = '' }) => {
+export const getSolicitudes = async ({ page = 1, limit: pageLimit = 10, search = '', userId = null }) => {
   try {
     const solicitudesCollection = collection(SOLICITUDES_COLLECTION);
     
     let q;
     const maxLimit = 100; // Límite máximo para evitar cargar demasiados documentos
     
-    // Optimización: Si hay búsqueda, usar filtro en Firestore
-    if (search && search.length >= 3) {
+    // Si se especifica userId, filtrar por él
+    if (userId) {
+      q = query(
+        solicitudesCollection,
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        limit(Math.min(pageLimit * page, maxLimit))
+      );
+    } else if (search && search.length >= 3) {
       // Búsqueda por número de documento (más eficiente con índices)
       q = query(
         solicitudesCollection,

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obtener Token Firebase Auth</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #357ae8;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .error {
+            color: #d32f2f;
+            margin-top: 10px;
+            padding: 10px;
+            background: #ffebee;
+            border-radius: 4px;
+        }
+        .success {
+            color: #2e7d32;
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+        }
+        .token-display {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 10px;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .copy-btn {
+            margin-top: 10px;
+            padding: 8px;
+            background: #4caf50;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔑 Obtener Token Firebase Auth</h1>
+        <p>Usa este formulario para obtener un token de Firebase Auth y probarlo en Postman.</p>
+        
+        <div class="form-group">
+            <label for="apiKey">Firebase API Key:</label>
+            <input type="text" id="apiKey" placeholder="AIzaSy..." />
+        </div>
+        
+        <div class="form-group">
+            <label for="authDomain">Auth Domain:</label>
+            <input type="text" id="authDomain" placeholder="tu-proyecto.firebaseapp.com" />
+        </div>
+        
+        <div class="form-group">
+            <label for="projectId">Project ID:</label>
+            <input type="text" id="projectId" placeholder="tu-proyecto-id" />
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" placeholder="usuario@example.com" />
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Contraseña:</label>
+            <input type="password" id="password" placeholder="Tu contraseña" />
+        </div>
+        
+        <button id="loginBtn" onclick="handleLogin()">Obtener Token</button>
+        <button class="copy-btn" id="copyBtn" onclick="copyToken()" style="display:none;">Copiar Token</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        window.handleLogin = async function() {
+            const apiKey = document.getElementById('apiKey').value;
+            const authDomain = document.getElementById('authDomain').value;
+            const projectId = document.getElementById('projectId').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            const loginBtn = document.getElementById('loginBtn');
+            const copyBtn = document.getElementById('copyBtn');
+
+            if (!apiKey || !authDomain || !projectId || !email || !password) {
+                resultDiv.innerHTML = '<div class="error">Por favor completa todos los campos</div>';
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Obteniendo token...';
+            resultDiv.innerHTML = '';
+
+            try {
+                // Inicializar Firebase
+                const app = initializeApp({
+                    apiKey: apiKey,
+                    authDomain: authDomain,
+                    projectId: projectId
+                });
+
+                const auth = getAuth(app);
+
+                // Autenticar usuario
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                
+                // Obtener ID Token
+                const idToken = await userCredential.user.getIdToken();
+
+                // Mostrar resultado
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Token obtenido exitosamente
+                    </div>
+                    <div class="token-display" id="tokenDisplay">${idToken}</div>
+                    <p><strong>Usuario:</strong> ${userCredential.user.email}</p>
+                    <p><strong>UID:</strong> ${userCredential.user.uid}</p>
+                    <p style="margin-top: 15px;"><strong>Instrucciones para Postman:</strong></p>
+                    <ol>
+                        <li>Copia el token de arriba</li>
+                        <li>En Postman, crea una nueva request: <code>POST http://localhost:3000/api/v1/auth/login</code></li>
+                        <li>En el Body (raw JSON), pega: <code>{"idToken": "TU_TOKEN_AQUI"}</code></li>
+                        <li>Click Send</li>
+                    </ol>
+                `;
+
+                // Guardar token para copiar
+                window.currentToken = idToken;
+                copyBtn.style.display = 'block';
+
+            } catch (error) {
+                let errorMessage = 'Error desconocido';
+                
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'Usuario no encontrado. Crea el usuario primero en Firebase Console.';
+                } else if (error.code === 'auth/wrong-password') {
+                    errorMessage = 'Contraseña incorrecta';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Email inválido';
+                } else if (error.code === 'auth/network-request-failed') {
+                    errorMessage = 'Error de conexión. Verifica tu internet.';
+                } else {
+                    errorMessage = error.message || error.code;
+                }
+
+                resultDiv.innerHTML = `<div class="error">❌ ${errorMessage}</div>`;
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Obtener Token';
+            }
+        };
+
+        window.copyToken = function() {
+            if (window.currentToken) {
+                navigator.clipboard.writeText(window.currentToken).then(() => {
+                    const copyBtn = document.getElementById('copyBtn');
+                    const originalText = copyBtn.textContent;
+                    copyBtn.textContent = '✓ Copiado!';
+                    setTimeout(() => {
+                        copyBtn.textContent = originalText;
+                    }, 2000);
+                });
+            }
+        };
+    </script>
+</body>
+</html>
+

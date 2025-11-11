@@ -4,6 +4,7 @@
 
 import express from 'express';
 import * as solicitudesController from '../controllers/solicitudes.controller.js';
+import { authenticateToken } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../lib/errors.js';
 
 const router = express.Router();
@@ -11,20 +12,20 @@ const router = express.Router();
 // Log para verificar que las rutas se registran
 console.log('✅ Ruta POST /solicitudes registrada');
 
-// POST /api/v1/solicitudes - Crear una nueva solicitud de crédito
-router.post('/', asyncHandler(solicitudesController.createSolicitud));
+// POST /api/v1/solicitudes - Crear una nueva solicitud de crédito (requiere auth)
+router.post('/', authenticateToken, asyncHandler(solicitudesController.createSolicitud));
 
-// GET /api/v1/solicitudes - Obtener todas las solicitudes
-router.get('/', asyncHandler(solicitudesController.getAllSolicitudes));
+// GET /api/v1/solicitudes - Obtener todas las solicitudes (requiere auth, filtra por ownership)
+router.get('/', authenticateToken, asyncHandler(solicitudesController.getAllSolicitudes));
 
-// GET /api/v1/solicitudes/:id - Obtener una solicitud por ID
-router.get('/:id', asyncHandler(solicitudesController.getSolicitudById));
+// GET /api/v1/solicitudes/:id - Obtener una solicitud por ID (requiere auth + ownership)
+router.get('/:id', authenticateToken, asyncHandler(solicitudesController.getSolicitudById));
 
-// PUT /api/v1/solicitudes/:id - Actualizar una solicitud
-router.put('/:id', asyncHandler(solicitudesController.updateSolicitud));
+// PUT /api/v1/solicitudes/:id - Actualizar una solicitud (requiere auth + ownership)
+router.put('/:id', authenticateToken, asyncHandler(solicitudesController.updateSolicitud));
 
-// DELETE /api/v1/solicitudes/:id - Eliminar una solicitud
-router.delete('/:id', asyncHandler(solicitudesController.deleteSolicitud));
+// DELETE /api/v1/solicitudes/:id - Eliminar una solicitud (requiere auth + ownership)
+router.delete('/:id', authenticateToken, asyncHandler(solicitudesController.deleteSolicitud));
 
 export default router;
 

@@ -6,6 +6,7 @@
 import express from 'express';
 import usersRoutes from './users.routes.js';
 import solicitudesRoutes from './solicitudes.routes.js';
+import authRoutes from './auth.routes.js';
 
 const router = express.Router();
 
@@ -17,6 +18,7 @@ router.get('/', (req, res) => {
     message: 'Bienvenido a Bancamia DataExpress API',
     version: 'v1',
     endpoints: {
+      auth: '/auth',
       users: '/users',
       solicitudes: '/solicitudes',
       health: '/health'
@@ -27,6 +29,7 @@ router.get('/', (req, res) => {
 // =====================================
 // Rutas de módulos
 // =====================================
+router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);
 router.use('/solicitudes', solicitudesRoutes);
 

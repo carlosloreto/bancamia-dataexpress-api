@@ -4,7 +4,7 @@
  */
 
 import * as solicitudesService from '../services/solicitudes.service.js';
-import { ValidationError, NotFoundError } from '../lib/errors.js';
+import { ValidationError, NotFoundError, AuthorizationError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 
 /**
@@ -256,7 +256,8 @@ export const createSolicitud = async (req, res) => {
     bodySize: JSON.stringify(req.body || {}).length,
     hasBody: !!req.body,
     bodyType: typeof req.body,
-    isArray: Array.isArray(req.body)
+    isArray: Array.isArray(req.body),
+    userId: req.user?.uid
   });
   
   const solicitudData = req.body;
@@ -271,9 +272,15 @@ export const createSolicitud = async (req, res) => {
     });
   }
   
+  // Agregar userId del usuario autenticado
+  if (req.user && req.user.uid) {
+    solicitudData.userId = req.user.uid;
+  }
+  
   logger.info('Recibiendo nueva solicitud de crédito', {
     email: solicitudData.email,
-    numeroDocumento: solicitudData.numeroDocumento
+    numeroDocumento: solicitudData.numeroDocumento,
+    userId: solicitudData.userId
   });
 
   // Validar datos
@@ -300,13 +307,24 @@ export const createSolicitud = async (req, res) => {
  */
 export const getAllSolicitudes = async (req, res) => {
   const { page = 1, limit = 10, search } = req.query;
+  const { uid: currentUserId, customClaims } = req.user || {};
+  const isAdmin = customClaims?.role === 'admin' || req.user?.role === 'admin';
   
-  logger.info('Obteniendo lista de solicitudes', { page, limit, search });
-  
+  logger.info('Obteniendo lista de solicitudes', { 
+    page, 
+    limit, 
+    search,
+    userId: currentUserId,
+    isAdmin 
+  });
+
+  // Si no es admin, solo puede ver sus propias solicitudes
+  // Esto se manejará en el servicio filtrando por userId
   const result = await solicitudesService.getSolicitudes({
     page: parseInt(page),
     limit: parseInt(limit),
-    search
+    search,
+    userId: isAdmin ? null : currentUserId // Si es admin, null = todas; si no, solo las suyas
   });
   
   res.status(200).json({
@@ -326,13 +344,20 @@ export const getAllSolicitudes = async (req, res) => {
  */
 export const getSolicitudById = async (req, res) => {
   const { id } = req.params;
+  const { uid: currentUserId, customClaims } = req.user || {};
+  const isAdmin = customClaims?.role === 'admin' || req.user?.role === 'admin';
   
-  logger.info('Obteniendo solicitud por ID', { id });
+  logger.info('Obteniendo solicitud por ID', { id, userId: currentUserId, isAdmin });
   
   const solicitud = await solicitudesService.getSolicitudById(id);
   
   if (!solicitud) {
     throw new NotFoundError(`Solicitud con ID ${id} no encontrada`);
+  }
+
+  // Verificar ownership: solo el dueño o admin puede ver la solicitud
+  if (!isAdmin && solicitud.userId !== currentUserId) {
+    throw new AuthorizationError('No tienes permiso para ver esta solicitud');
   }
   
   res.status(200).json({
@@ -347,8 +372,22 @@ export const getSolicitudById = async (req, res) => {
 export const updateSolicitud = async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
+  const { uid: currentUserId, customClaims } = req.user || {};
+  const isAdmin = customClaims?.role === 'admin' || req.user?.role === 'admin';
   
-  logger.info('Actualizando solicitud', { id, fields: Object.keys(updateData) });
+  logger.info('Actualizando solicitud', { id, fields: Object.keys(updateData), userId: currentUserId, isAdmin });
+
+  // Obtener la solicitud para verificar ownership
+  const solicitud = await solicitudesService.getSolicitudById(id);
+  
+  if (!solicitud) {
+    throw new NotFoundError(`Solicitud con ID ${id} no encontrada`);
+  }
+
+  // Verificar ownership: solo el dueño o admin puede actualizar
+  if (!isAdmin && solicitud.userId !== currentUserId) {
+    throw new AuthorizationError('No tienes permiso para actualizar esta solicitud');
+  }
   
   // Si se están actualizando campos, validar
   if (Object.keys(updateData).length > 0) {
@@ -381,8 +420,22 @@ export const updateSolicitud = async (req, res) => {
  */
 export const deleteSolicitud = async (req, res) => {
   const { id } = req.params;
+  const { uid: currentUserId, customClaims } = req.user || {};
+  const isAdmin = customClaims?.role === 'admin' || req.user?.role === 'admin';
   
-  logger.info('Eliminando solicitud', { id });
+  logger.info('Eliminando solicitud', { id, userId: currentUserId, isAdmin });
+
+  // Obtener la solicitud para verificar ownership
+  const solicitud = await solicitudesService.getSolicitudById(id);
+  
+  if (!solicitud) {
+    throw new NotFoundError(`Solicitud con ID ${id} no encontrada`);
+  }
+
+  // Verificar ownership: solo el dueño o admin puede eliminar
+  if (!isAdmin && solicitud.userId !== currentUserId) {
+    throw new AuthorizationError('No tienes permiso para eliminar esta solicitud');
+  }
   
   const deleted = await solicitudesService.deleteSolicitud(id);
   

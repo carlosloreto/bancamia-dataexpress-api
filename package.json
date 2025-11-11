@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node tests/auth.test.js",
+    "test:integration": "node tests/integration.auth.test.js",
+    "test:quick": "node tests/quick.test.js",
     "seed": "node src/scripts/seed-firestore.js",
     "seed:force": "FORCE_SEED=true node src/scripts/seed-firestore.js",
     "clear": "node src/scripts/clear-firestore.js",

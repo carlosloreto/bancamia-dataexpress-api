@@ -4,8 +4,34 @@
  */
 
 import * as usersService from '../services/users.service.js';
-import { ValidationError, NotFoundError } from '../lib/errors.js';
+import * as authService from '../services/auth.service.js';
+import { ValidationError, NotFoundError, AuthorizationError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
+
+/**
+ * Obtener perfil del usuario autenticado
+ * GET /api/v1/users/me
+ */
+export const getMe = async (req, res) => {
+  // req.user viene del middleware authenticateToken
+  const { uid } = req.user;
+
+  if (!uid) {
+    throw new ValidationError('Usuario no autenticado');
+  }
+
+  logger.debug('Obteniendo perfil del usuario autenticado', { uid });
+
+  // Obtener perfil completo (combina Auth + Firestore)
+  const profile = await authService.getUserProfile(uid);
+
+  res.status(200).json({
+    success: true,
+    data: {
+      user: profile
+    }
+  });
+};
 
 /**
  * Obtener todos los usuarios
@@ -83,15 +109,33 @@ export const createUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
+  const { uid: currentUserId, customClaims } = req.user || {};
   
-  logger.info('Actualizando usuario', { id, fields: Object.keys(updateData) });
+  logger.info('Actualizando usuario', { id, fields: Object.keys(updateData), currentUserId });
+
+  // Verificar si el usuario está intentando actualizar su propio perfil o es admin
+  const isAdmin = customClaims?.role === 'admin' || req.user?.role === 'admin';
   
+  // Si no es admin, solo puede actualizar su propio perfil
+  if (!isAdmin) {
+    // Buscar el usuario en Firestore para obtener su firebaseUid
+    const userToUpdate = await usersService.getUserById(id);
+    if (!userToUpdate) {
+      throw new NotFoundError(`Usuario con ID ${id} no encontrado`);
+    }
+    
+    // Verificar ownership
+    if (userToUpdate.firebaseUid !== currentUserId) {
+      throw new AuthorizationError('No tienes permiso para actualizar este usuario');
+    }
+  }
+
   const updatedUser = await usersService.updateUser(id, updateData);
-  
+
   if (!updatedUser) {
     throw new NotFoundError(`Usuario con ID ${id} no encontrado`);
   }
-  
+
   res.status(200).json({
     success: true,
     message: 'Usuario actualizado exitosamente',

@@ -50,6 +50,24 @@ export class AuthenticationError extends AppError {
 }
 
 /**
+ * Error de token expirado - 401
+ */
+export class TokenExpiredError extends AuthenticationError {
+  constructor(message = 'Token expirado', details = null) {
+    super(message, 401, 'TOKEN_EXPIRED', details);
+  }
+}
+
+/**
+ * Error de token inválido - 401
+ */
+export class InvalidTokenError extends AuthenticationError {
+  constructor(message = 'Token inválido', details = null) {
+    super(message, 401, 'INVALID_TOKEN', details);
+  }
+}
+
+/**
  * Error de autorización - 403
  */
 export class AuthorizationError extends AppError {

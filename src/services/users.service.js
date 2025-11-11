@@ -138,7 +138,11 @@ export const createUser = async (userData) => {
       name: userData.name,
       email: userData.email,
       role: userData.role || 'user',
-      createdAt: FieldValue.serverTimestamp()
+      firebaseUid: userData.firebaseUid || null,
+      emailVerified: userData.emailVerified || false,
+      photoURL: userData.photoURL || null,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
     };
     
     const docRef = await addDoc(usersCollection, newUser);
@@ -281,6 +285,38 @@ export const countUsers = async () => {
   } catch (error) {
     logger.error('Error al contar usuarios', { error: error.message });
     throw new DatabaseError('Error al contar usuarios', {
+      originalError: error.message
+    });
+  }
+};
+
+/**
+ * Obtiene un usuario por Firebase UID
+ */
+export const getUserByFirebaseUid = async (firebaseUid) => {
+  try {
+    const usersCollection = collection(USERS_COLLECTION);
+    const q = query(usersCollection, where('firebaseUid', '==', firebaseUid));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      return null;
+    }
+    
+    const user = docToObject(snapshot.docs[0]);
+    
+    return {
+      ...user,
+      createdAt: user.createdAt?.toDate?.().toISOString() || user.createdAt?.toISOString?.() || null,
+      updatedAt: user.updatedAt?.toDate?.().toISOString() || user.updatedAt?.toISOString?.() || null,
+      lastLoginAt: user.lastLoginAt?.toDate?.().toISOString() || user.lastLoginAt?.toISOString?.() || null
+    };
+  } catch (error) {
+    logger.error('Error al obtener usuario por Firebase UID', {
+      firebaseUid,
+      error: error.message
+    });
+    throw new DatabaseError('Error al obtener usuario', {
       originalError: error.message
     });
   }

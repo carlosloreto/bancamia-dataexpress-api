@@ -68,4 +68,19 @@ export const securityHeaders = (req, res, next) => {
   next();
 };
 
+// Exportar middlewares de autenticación
+export {
+  authenticateToken,
+  optionalAuth,
+  requireRole,
+  requireOwnership
+} from './auth.middleware.js';
+
+// Exportar middlewares de rate limiting
+export {
+  rateLimit,
+  loginRateLimit,
+  registerRateLimit
+} from './rate-limit.middleware.js';
+
 
