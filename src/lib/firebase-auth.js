@@ -43,8 +43,10 @@ export const initializeAuth = () => {
       // Cloud Run automáticamente proporciona credenciales mediante la cuenta de servicio
       // asociada al servicio. No necesitas claves de cuenta de servicio.
       try {
+        // Intentar con ADC primero
+        const credential = admin.credential.applicationDefault();
         admin.initializeApp({
-          credential: admin.credential.applicationDefault(),
+          credential: credential,
           projectId: process.env.FIREBASE_PROJECT_ID
         });
         logger.info('✅ Firebase Admin SDK inicializado con Application Default Credentials (método más seguro)', {
