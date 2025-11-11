@@ -33,11 +33,13 @@ export const createSolicitud = async (solicitudData) => {
   try {
     const solicitudesCollection = collection(SOLICITUDES_COLLECTION);
 
-    // Función helper para convertir a número de forma segura
+    // Función helper mejorada para convertir a número de forma segura
     const safeParseFloat = (value) => {
       if (!value && value !== 0) return null;
       const parsed = parseFloat(value);
-      return isNaN(parsed) ? null : parsed;
+      // Verificar que no sea NaN, Infinity o -Infinity (Firestore no los acepta)
+      if (isNaN(parsed) || !isFinite(parsed)) return null;
+      return parsed;
     };
 
     // Preparar datos de la solicitud con conversión de números y limpieza
@@ -65,9 +67,9 @@ export const createSolicitud = async (solicitudData) => {
       tiempoEmpleo: solicitudData.tiempoEmpleo || '',
 
       // 3. Información del Crédito
-      // Convertir a número de forma segura (evitar NaN)
+      // Convertir a número de forma segura (evitar NaN, Infinity)
       montoSolicitado: safeParseFloat(solicitudData.montoSolicitado) ?? 0,
-      plazoMeses: solicitudData.plazoMeses || '',
+      plazoMeses: safeParseFloat(solicitudData.plazoMeses) ?? 12, // Convertir a número
       proposito: solicitudData.proposito || '',
       tieneDeudas: solicitudData.tieneDeudas || '',
       // Convertir a número o null (solo si tieneDeudas es "si")
@@ -89,9 +91,17 @@ export const createSolicitud = async (solicitudData) => {
       updatedAt: FieldValue.serverTimestamp()
     };
 
-    // Limpiar el objeto: eliminar campos undefined (Firestore no los acepta)
+    // Limpiar el objeto: eliminar campos undefined y valores inválidos (Firestore no los acepta)
     const cleanedSolicitud = Object.fromEntries(
-      Object.entries(newSolicitud).filter(([_, value]) => value !== undefined)
+      Object.entries(newSolicitud).filter(([key, value]) => {
+        // Eliminar undefined
+        if (value === undefined) return false;
+        // Eliminar null en campos que no deberían ser null (excepto montoDeudas)
+        if (value === null && key !== 'montoDeudas') return false;
+        // Verificar que los números no sean Infinity o -Infinity
+        if (typeof value === 'number' && !isFinite(value)) return false;
+        return true;
+      })
     );
 
     // Guardar en Firestore (una sola operación)
@@ -256,14 +266,16 @@ export const updateSolicitud = async (id, updateData) => {
       return null;
     }
 
-    // Función helper para convertir a número de forma segura
+    // Función helper mejorada para convertir a número de forma segura
     const safeParseFloat = (value) => {
       if (!value && value !== 0) return null;
       const parsed = parseFloat(value);
-      return isNaN(parsed) ? null : parsed;
+      // Verificar que no sea NaN, Infinity o -Infinity (Firestore no los acepta)
+      if (isNaN(parsed) || !isFinite(parsed)) return null;
+      return parsed;
     };
 
-    // Convertir números si están presentes (evitar NaN)
+    // Convertir números si están presentes (evitar NaN, Infinity)
     const dataToUpdate = { ...updateData };
     
     if (dataToUpdate.ingresosMensuales !== undefined) {
@@ -273,6 +285,10 @@ export const updateSolicitud = async (id, updateData) => {
     if (dataToUpdate.montoSolicitado !== undefined) {
       const parsed = safeParseFloat(dataToUpdate.montoSolicitado);
       dataToUpdate.montoSolicitado = parsed !== null ? parsed : 0;
+    }
+    if (dataToUpdate.plazoMeses !== undefined) {
+      const parsed = safeParseFloat(dataToUpdate.plazoMeses);
+      dataToUpdate.plazoMeses = parsed !== null ? parsed : 12; // Convertir a número
     }
     if (dataToUpdate.montoDeudas !== undefined) {
       dataToUpdate.montoDeudas = safeParseFloat(dataToUpdate.montoDeudas);
@@ -285,9 +301,17 @@ export const updateSolicitud = async (id, updateData) => {
     delete dataToUpdate.createdAt;
     delete dataToUpdate.fechaSolicitud;
 
-    // Limpiar el objeto: eliminar campos undefined (Firestore no los acepta)
+    // Limpiar el objeto: eliminar campos undefined y valores inválidos (Firestore no los acepta)
     const cleanedUpdate = Object.fromEntries(
-      Object.entries(dataToUpdate).filter(([_, value]) => value !== undefined)
+      Object.entries(dataToUpdate).filter(([key, value]) => {
+        // Eliminar undefined
+        if (value === undefined) return false;
+        // Eliminar null en campos que no deberían ser null (excepto montoDeudas)
+        if (value === null && key !== 'montoDeudas') return false;
+        // Verificar que los números no sean Infinity o -Infinity
+        if (typeof value === 'number' && !isFinite(value)) return false;
+        return true;
+      })
     );
 
     await updateDoc(solicitudDocRef, cleanedUpdate);

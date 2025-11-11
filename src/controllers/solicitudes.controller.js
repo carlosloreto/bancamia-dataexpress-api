@@ -250,10 +250,13 @@ export const createSolicitud = async (req, res) => {
   // Log detallado para debugging en Cloud Run
   logger.info('POST /solicitudes recibido', {
     method: req.method,
-    headers: req.headers,
+    contentType: req.get('Content-Type'),
+    contentLength: req.get('Content-Length'),
     bodyKeys: Object.keys(req.body || {}),
     bodySize: JSON.stringify(req.body || {}).length,
-    hasBody: !!req.body
+    hasBody: !!req.body,
+    bodyType: typeof req.body,
+    isArray: Array.isArray(req.body)
   });
   
   const solicitudData = req.body;

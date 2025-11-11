@@ -72,15 +72,16 @@ app.options('*', (req, res) => {
 // Middlewares de parsing (ANTES de otros middlewares)
 // =====================================
 // IMPORTANTE: express.json debe ir ANTES de otros middlewares que usen req.body
+// Configuración flexible para Cloud Run (puede agregar headers adicionales)
 app.use(express.json({ 
   limit: '10mb',
-  strict: true,
-  type: 'application/json'
+  strict: false, // Permitir JSON flexible (Cloud Run puede modificar Content-Type)
+  type: ['application/json', 'application/json; charset=utf-8', 'text/json'] // Múltiples tipos aceptados
 })); // Parse JSON
 app.use(express.urlencoded({ 
   extended: true, 
   limit: '10mb',
-  type: 'application/x-www-form-urlencoded'
+  type: ['application/x-www-form-urlencoded', 'application/x-www-form-urlencoded; charset=utf-8'] // Múltiples tipos aceptados
 })); // Parse URL-encoded
 app.use(compression()); // Comprimir respuestas
 
