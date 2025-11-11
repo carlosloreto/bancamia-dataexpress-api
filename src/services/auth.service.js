@@ -141,7 +141,26 @@ export const login = async (idToken) => {
     const decodedToken = await verifyIdToken(idToken);
 
     // Obtener información completa del usuario de Firebase Auth
-    const authUser = await getAuthUser(decodedToken.uid);
+    let authUser;
+    try {
+      authUser = await getAuthUser(decodedToken.uid);
+    } catch (error) {
+      logger.error('Error al obtener usuario de Firebase Auth', {
+        uid: decodedToken.uid,
+        error: error.message,
+        code: error.code
+      });
+      // Si falla obtener el usuario completo, usar datos del token decodificado
+      authUser = {
+        uid: decodedToken.uid,
+        email: decodedToken.email,
+        emailVerified: decodedToken.email_verified || false,
+        displayName: decodedToken.name || null,
+        photoURL: null,
+        customClaims: decodedToken.custom_claims || {}
+      };
+      logger.warn('Usando datos del token decodificado en lugar de usuario completo');
+    }
 
     // Sincronizar con Firestore
     const firestoreUser = await syncUserToFirestore(decodedToken.uid, authUser);
