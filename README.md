@@ -473,11 +473,31 @@ ISC
 
 Bancamia Team
 
+## 🎨 Integración Frontend React
+
+Para integrar esta API en tu aplicación frontend React, consulta las siguientes guías:
+
+- 📖 **[GUIA_FRONTEND_AUTH.md](./GUIA_FRONTEND_AUTH.md)** - Guía completa de integración de autenticación
+- 📝 **[GUIA_REGISTRO_USUARIOS.md](./GUIA_REGISTRO_USUARIOS.md)** - Guía completa para registro de usuarios con todos sus datos
+- 🤖 **[PROMPT_CURSOR_FRONTEND.md](./PROMPT_CURSOR_FRONTEND.md)** - Prompt para usar en Cursor AI
+- 💻 **[EJEMPLOS_CODIGO_FRONTEND.md](./EJEMPLOS_CODIGO_FRONTEND.md)** - Ejemplos de código listos para usar
+
+### Endpoints de Autenticación
+
+- `POST /api/v1/auth/login` - Login con idToken de Firebase
+- `POST /api/v1/auth/register` - Registro de nuevo usuario
+- `POST /api/v1/auth/verify` - Verificar token
+- `GET /api/v1/auth/me` - Obtener perfil del usuario (requiere autenticación)
+- `POST /api/v1/auth/refresh` - Renovar token
+
+Para más detalles sobre cómo probar la autenticación, consulta [COMO_PROBAR_AUTH.md](./COMO_PROBAR_AUTH.md)
+
 ## 🔗 Enlaces Útiles
 
 - [Documentación de Express](https://expressjs.com/)
 - [Documentación de Firestore](https://firebase.google.com/docs/firestore?hl=es-419)
 - [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup)
+- [Firebase Authentication](https://firebase.google.com/docs/auth)
 - [Express con Firebase Hosting](https://firebase.google.com/docs/hosting/frameworks/express?hl=es-419)
 - [Firestore Emulator](https://firebase.google.com/docs/emulator-suite/connect_firestore)
 - [RESTful API Best Practices](https://restfulapi.net/)

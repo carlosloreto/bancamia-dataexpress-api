@@ -79,11 +79,11 @@ export const loginRateLimit = rateLimit({
 });
 
 /**
- * Rate limiter específico para registro (3 intentos por hora)
+ * Rate limiter específico para registro (20 intentos por hora)
  */
 export const registerRateLimit = rateLimit({
   windowMs: 3600000, // 1 hora
-  maxRequests: 3,
+  maxRequests: 20,
   message: 'Demasiados intentos de registro. Intenta nuevamente en una hora.'
 });
 
