@@ -380,7 +380,24 @@ export const verifyToken = async (idToken) => {
 export const getUserProfile = async (uid) => {
   try {
     // Obtener información de Firebase Auth
-    const authUser = await getAuthUser(uid);
+    let authUser;
+    try {
+      authUser = await getAuthUser(uid);
+    } catch (error) {
+      logger.warn('Error al obtener usuario de Firebase Auth en getUserProfile, usando solo Firestore', {
+        uid,
+        error: error.message
+      });
+      // Si falla, crear objeto básico con solo el UID
+      authUser = {
+        uid,
+        email: null,
+        emailVerified: false,
+        displayName: null,
+        photoURL: null,
+        customClaims: {}
+      };
+    }
 
     // Buscar en Firestore
     const usersCollection = collection(USERS_COLLECTION);
@@ -392,11 +409,16 @@ export const getUserProfile = async (uid) => {
       firestoreUser = docToObject(snapshot.docs[0]);
     }
 
+    // Si no hay usuario en Firestore y no pudimos obtener de Auth, lanzar error
+    if (!firestoreUser && !authUser.email) {
+      throw new NotFoundError('Usuario no encontrado');
+    }
+
     // Combinar información
     const profile = {
-      uid: authUser.uid,
-      email: authUser.email,
-      emailVerified: authUser.emailVerified,
+      uid: authUser.uid || uid,
+      email: authUser.email || firestoreUser?.email || '',
+      emailVerified: authUser.emailVerified !== undefined ? authUser.emailVerified : (firestoreUser?.emailVerified || false),
       name: authUser.displayName || firestoreUser?.name || '',
       photoURL: authUser.photoURL || firestoreUser?.photoURL || null,
       role: authUser.customClaims?.role || firestoreUser?.role || 'user',
@@ -408,6 +430,9 @@ export const getUserProfile = async (uid) => {
 
     return profile;
   } catch (error) {
+    if (error instanceof NotFoundError) {
+      throw error;
+    }
     logger.error('Error al obtener perfil de usuario', {
       uid,
       error: error.message
