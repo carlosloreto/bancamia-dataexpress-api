@@ -10,15 +10,29 @@ const PORT = config.port;
 
 /**
  * Iniciar servidor
+ * IMPORTANTE: En Cloud Run debe escuchar en 0.0.0.0, no en localhost
  */
-const server = app.listen(PORT, () => {
+const HOST = process.env.HOST || '0.0.0.0'; // Cloud Run requiere 0.0.0.0
+const server = app.listen(PORT, HOST, () => {
   logger.info(`🚀 Servidor iniciado exitosamente`, {
+    host: HOST,
     port: PORT,
     environment: config.nodeEnv,
     apiVersion: config.api.version,
-    url: `http://localhost:${PORT}`,
-    healthCheck: `http://localhost:${PORT}/health`,
-    apiBase: `http://localhost:${PORT}${config.api.prefix}/${config.api.version}`
+    url: `http://${HOST}:${PORT}`,
+    healthCheck: `http://${HOST}:${PORT}/health`,
+    apiBase: `http://${HOST}:${PORT}${config.api.prefix}/${config.api.version}`
+  });
+  
+  // Log adicional para verificar que las rutas están registradas
+  logger.info('Rutas registradas:', {
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    endpoints: [
+      '/health',
+      '/',
+      `${config.api.prefix}/${config.api.version}/solicitudes`,
+      `${config.api.prefix}/${config.api.version}/users`
+    ]
   });
 });
 

@@ -8,6 +8,9 @@ import { asyncHandler } from '../lib/errors.js';
 
 const router = express.Router();
 
+// Log para verificar que las rutas se registran
+console.log('✅ Ruta POST /solicitudes registrada');
+
 // POST /api/v1/solicitudes - Crear una nueva solicitud de crédito
 router.post('/', asyncHandler(solicitudesController.createSolicitud));
 

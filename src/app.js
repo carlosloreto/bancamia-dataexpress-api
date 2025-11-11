@@ -51,10 +51,22 @@ app.use(securityHeaders); // Headers adicionales
 // Configurar CORS para permitir todas las conexiones (scripts, navegadores, etc.)
 app.use(cors({
   origin: '*', // Permitir todos los orígenes
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: false
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  maxAge: 86400, // 24 horas
+  credentials: false,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// Manejar preflight OPTIONS explícitamente (importante para Cloud Run)
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
+  res.sendStatus(204);
+});
 
 // =====================================
 // Middlewares de parsing (ANTES de otros middlewares)
@@ -110,6 +122,19 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: config.nodeEnv
+  });
+});
+
+// Endpoint de prueba para verificar que POST funciona
+app.post('/test-post', (req, res) => {
+  logger.info('POST /test-post recibido', {
+    body: req.body,
+    headers: req.headers
+  });
+  res.status(200).json({
+    success: true,
+    message: 'POST funciona correctamente',
+    received: req.body
   });
 });
 
