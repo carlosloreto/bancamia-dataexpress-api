@@ -9,7 +9,7 @@
 const API_URL_LOCAL = 'http://localhost:3000/api/v1/solicitudes';
 const API_URL_PROD = 'https://bancamia-dataexpress-api-848620556467.southamerica-east1.run.app/api/v1/solicitudes';
 
-// Usar local para pruebas
+// Usar LOCAL para pruebas
 const API_URL = API_URL_LOCAL;
 const HEALTH_URL = API_URL.replace('/api/v1/solicitudes', '/health');
 

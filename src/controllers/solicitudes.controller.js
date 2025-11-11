@@ -247,7 +247,26 @@ const validateSolicitudData = (data) => {
  * Crear una nueva solicitud de crédito
  */
 export const createSolicitud = async (req, res) => {
+  // Log detallado para debugging en Cloud Run
+  logger.info('POST /solicitudes recibido', {
+    method: req.method,
+    headers: req.headers,
+    bodyKeys: Object.keys(req.body || {}),
+    bodySize: JSON.stringify(req.body || {}).length,
+    hasBody: !!req.body
+  });
+  
   const solicitudData = req.body;
+  
+  if (!solicitudData || Object.keys(solicitudData).length === 0) {
+    logger.error('Body vacío o no parseado', {
+      contentType: req.get('Content-Type'),
+      body: req.body
+    });
+    throw new ValidationError('El cuerpo de la solicitud está vacío o no es válido', {
+      errors: [{ type: 'empty_body', message: 'No se recibieron datos en el cuerpo de la solicitud' }]
+    });
+  }
   
   logger.info('Recibiendo nueva solicitud de crédito', {
     email: solicitudData.email,

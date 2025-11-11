@@ -57,10 +57,19 @@ app.use(cors({
 }));
 
 // =====================================
-// Middlewares de parsing
+// Middlewares de parsing (ANTES de otros middlewares)
 // =====================================
-app.use(express.json({ limit: '10mb' })); // Parse JSON
-app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded
+// IMPORTANTE: express.json debe ir ANTES de otros middlewares que usen req.body
+app.use(express.json({ 
+  limit: '10mb',
+  strict: true,
+  type: 'application/json'
+})); // Parse JSON
+app.use(express.urlencoded({ 
+  extended: true, 
+  limit: '10mb',
+  type: 'application/x-www-form-urlencoded'
+})); // Parse URL-encoded
 app.use(compression()); // Comprimir respuestas
 
 // =====================================
@@ -68,6 +77,29 @@ app.use(compression()); // Comprimir respuestas
 // =====================================
 app.use(requestLogger); // Log de requests
 app.use(validateContentType); // Validar Content-Type
+
+// Timeout handler para Cloud Run (evitar que las requests se cuelguen)
+// Debe ir ANTES de las rutas para aplicar a todas las requests
+app.use((req, res, next) => {
+  // Establecer timeout de 50 segundos (menos que el de Cloud Run de 60s)
+  req.setTimeout(50000, () => {
+    logger.error('Request timeout', { 
+      method: req.method, 
+      path: req.path,
+      timeout: 50000 
+    });
+    if (!res.headersSent) {
+      res.status(504).json({
+        success: false,
+        error: {
+          message: 'Request timeout - El servidor tardó demasiado en responder',
+          code: 'TIMEOUT'
+        }
+      });
+    }
+  });
+  next();
+});
 
 // =====================================
 // Health check
@@ -101,6 +133,7 @@ app.use(`${config.api.prefix}/${config.api.version}`, apiRoutes);
 // =====================================
 // Manejo de errores
 // =====================================
+// IMPORTANTE: validateJSON debe ir DESPUÉS de express.json para capturar errores de parsing
 app.use(validateJSON); // Errores de JSON inválido
 app.use(notFoundHandler); // Rutas no encontradas (404)
 app.use(errorHandler); // Manejo global de errores
