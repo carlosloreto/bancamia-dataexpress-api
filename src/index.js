@@ -10,15 +10,26 @@ const PORT = config.port;
 
 /**
  * Iniciar servidor
- * IMPORTANTE: En Cloud Run debe escuchar en 0.0.0.0, no en localhost
+ * IMPORTANTE para Cloud Run:
+ * - Debe escuchar en 0.0.0.0 (no localhost)
+ * - El puerto viene de la variable de entorno PORT (Cloud Run la establece automáticamente)
+ * - Debe responder rápidamente a health checks
  */
-const HOST = process.env.HOST || '0.0.0.0'; // Cloud Run requiere 0.0.0.0
+const HOST = '0.0.0.0'; // Cloud Run requiere 0.0.0.0 explícitamente
+
+// Verificar que el puerto esté configurado
+if (!PORT) {
+  logger.error('PORT no está definido. Cloud Run requiere que PORT esté configurado.');
+  process.exit(1);
+}
+
 const server = app.listen(PORT, HOST, () => {
   logger.info(`🚀 Servidor iniciado exitosamente`, {
     host: HOST,
     port: PORT,
     environment: config.nodeEnv,
     apiVersion: config.api.version,
+    cloudRun: process.env.K_SERVICE ? 'Sí' : 'No',
     url: `http://${HOST}:${PORT}`,
     healthCheck: `http://${HOST}:${PORT}/health`,
     apiBase: `http://${HOST}:${PORT}${config.api.prefix}/${config.api.version}`
@@ -26,13 +37,20 @@ const server = app.listen(PORT, HOST, () => {
   
   // Log adicional para verificar que las rutas están registradas
   logger.info('Rutas registradas:', {
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     endpoints: [
       '/health',
+      '/test-post',
       '/',
       `${config.api.prefix}/${config.api.version}/solicitudes`,
       `${config.api.prefix}/${config.api.version}/users`
     ]
+  });
+  
+  // Verificar que el servidor está escuchando correctamente
+  logger.info('Servidor listo para recibir requests', {
+    listening: server.listening,
+    address: server.address()
   });
 });
 

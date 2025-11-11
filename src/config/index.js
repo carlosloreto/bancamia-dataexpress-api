@@ -9,7 +9,8 @@ dotenv.config();
 
 export const config = {
   // Configuración del servidor
-  port: process.env.PORT || 3000,
+  // Cloud Run establece PORT automáticamente, usar 3000 solo para desarrollo local
+  port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   
   // Configuración de la API
