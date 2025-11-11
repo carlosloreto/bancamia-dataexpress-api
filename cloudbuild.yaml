@@ -15,9 +15,23 @@ steps:
         fi
         # Usar valores por defecto si no existen en .env
         export FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-bancamia-dataexpress}
-        # Guardar en archivo para pasarlo al siguiente paso
-        echo "FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}" > /workspace/env_vars.txt
-        echo "Variables cargadas: FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}"
+        export FIREBASE_API_KEY=${FIREBASE_API_KEY:-}
+        export FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN:-bancamia-dataexpress.firebaseapp.com}
+        export FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET:-bancamia-dataexpress.firebasestorage.app}
+        export FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID:-}
+        export FIREBASE_APP_ID=${FIREBASE_APP_ID:-}
+        export FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID:-}
+        # Guardar todas las variables en archivo para pasarlo al siguiente paso
+        {
+          echo "FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}"
+          echo "FIREBASE_API_KEY=${FIREBASE_API_KEY}"
+          echo "FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}"
+          echo "FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}"
+          echo "FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}"
+          echo "FIREBASE_APP_ID=${FIREBASE_APP_ID}"
+          echo "FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}"
+        } > /workspace/env_vars.txt
+        echo "Variables cargadas desde .env"
   
   # Paso 1: Construir la imagen Docker
   - name: 'gcr.io/cloud-builders/docker'
@@ -44,7 +58,28 @@ steps:
         # Cargar variables del archivo
         source /workspace/env_vars.txt
         # IMPORTANTE: Usamos el MISMO proyecto para Google Cloud y Firebase
-        # PROJECT_ID = bancamia-dataexpress (mismo para Cloud Run y Firebase)
+        # Todas las credenciales vienen del .env (no hardcodeadas)
+        # Construir string de variables de entorno
+        ENV_VARS="NODE_ENV=production"
+        ENV_VARS="${ENV_VARS},FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}"
+        if [ ! -z "${FIREBASE_API_KEY}" ]; then
+          ENV_VARS="${ENV_VARS},FIREBASE_API_KEY=${FIREBASE_API_KEY}"
+        fi
+        if [ ! -z "${FIREBASE_AUTH_DOMAIN}" ]; then
+          ENV_VARS="${ENV_VARS},FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}"
+        fi
+        if [ ! -z "${FIREBASE_STORAGE_BUCKET}" ]; then
+          ENV_VARS="${ENV_VARS},FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}"
+        fi
+        if [ ! -z "${FIREBASE_MESSAGING_SENDER_ID}" ]; then
+          ENV_VARS="${ENV_VARS},FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}"
+        fi
+        if [ ! -z "${FIREBASE_APP_ID}" ]; then
+          ENV_VARS="${ENV_VARS},FIREBASE_APP_ID=${FIREBASE_APP_ID}"
+        fi
+        if [ ! -z "${FIREBASE_MEASUREMENT_ID}" ]; then
+          ENV_VARS="${ENV_VARS},FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}"
+        fi
         gcloud run deploy bancamia-dataexpress-api \
           --image=gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA \
           --region=southamerica-east1 \
@@ -58,7 +93,7 @@ steps:
           --timeout=300 \
           --concurrency=80 \
           --service-account=firebase-admin@bancamia-dataexpress.iam.gserviceaccount.com \
-          --set-env-vars=NODE_ENV=production,FIREBASE_PROJECT_ID=bancamia-dataexpress,FIREBASE_API_KEY=AIzaSyBUuImiMy_1QvZcE4Pg7t6cxjYbG1HT_5A,FIREBASE_AUTH_DOMAIN=bancamia-dataexpress.firebaseapp.com,FIREBASE_STORAGE_BUCKET=bancamia-dataexpress.firebasestorage.app,FIREBASE_MESSAGING_SENDER_ID=773449658013,FIREBASE_APP_ID=1:773449658013:web:1e0dafc4058fba91a7ae74,FIREBASE_MEASUREMENT_ID=G-PK1V1T3TD2 \
+          --set-env-vars="${ENV_VARS}" \
           --project=bancamia-dataexpress
 
 images:
