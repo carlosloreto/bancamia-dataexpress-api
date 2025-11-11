@@ -13,14 +13,14 @@ steps:
         if [ -f .env ]; then
           export $(grep -v '^#' .env | grep -v '^$' | xargs)
         fi
-        # Usar valores por defecto si no existen en .env
-        export FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-bancamia-dataexpress}
-        export FIREBASE_API_KEY=${FIREBASE_API_KEY:-}
-        export FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN:-bancamia-dataexpress.firebaseapp.com}
-        export FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET:-bancamia-dataexpress.firebasestorage.app}
-        export FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID:-}
-        export FIREBASE_APP_ID=${FIREBASE_APP_ID:-}
-        export FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID:-}
+        # Todas las variables deben venir del .env (sin valores por defecto hardcodeados)
+        export FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+        export FIREBASE_API_KEY=${FIREBASE_API_KEY}
+        export FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
+        export FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
+        export FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}
+        export FIREBASE_APP_ID=${FIREBASE_APP_ID}
+        export FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
         # Guardar todas las variables en archivo para pasarlo al siguiente paso
         {
           echo "FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}"
