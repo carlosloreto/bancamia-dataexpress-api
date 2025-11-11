@@ -13,6 +13,8 @@ import {
   deleteDoc,
   query,
   where,
+  orderBy,
+  limit,
   docToObject,
   snapshotToArray,
   FieldValue
@@ -25,29 +27,13 @@ const SOLICITUDES_COLLECTION = 'solicitudes';
 
 /**
  * Crea una nueva solicitud de crédito
+ * OPTIMIZADO: Eliminada query innecesaria y doble lectura
  */
 export const createSolicitud = async (solicitudData) => {
   try {
-    // Verificar si ya existe una solicitud con el mismo número de documento
     const solicitudesCollection = collection(SOLICITUDES_COLLECTION);
-    const q = query(
-      solicitudesCollection,
-      where('numeroDocumento', '==', solicitudData.numeroDocumento)
-    );
-    const existingSolicitudesSnapshot = await getDocs(q);
-    
-    // Opcional: permitir múltiples solicitudes del mismo documento
-    // Si quieres prevenir esto, descomenta el siguiente código:
-    /*
-    if (!existingSolicitudesSnapshot.empty) {
-      throw new ConflictError('Ya existe una solicitud con este número de documento', {
-        field: 'numeroDocumento',
-        value: solicitudData.numeroDocumento
-      });
-    }
-    */
 
-    // Preparar datos de la solicitud
+    // Preparar datos de la solicitud con conversión de números
     const newSolicitud = {
       // 1. Información Personal
       nombreCompleto: solicitudData.nombreCompleto,
@@ -67,15 +53,21 @@ export const createSolicitud = async (solicitudData) => {
       empresa: solicitudData.empresa,
       cargoActual: solicitudData.cargoActual,
       tipoContrato: solicitudData.tipoContrato,
-      ingresosMensuales: solicitudData.ingresosMensuales,
+      // Convertir a número para mejor rendimiento en Firestore
+      ingresosMensuales: solicitudData.ingresosMensuales ? 
+        parseFloat(solicitudData.ingresosMensuales) : 0,
       tiempoEmpleo: solicitudData.tiempoEmpleo,
 
       // 3. Información del Crédito
-      montoSolicitado: solicitudData.montoSolicitado,
+      // Convertir a número para mejor rendimiento en Firestore
+      montoSolicitado: solicitudData.montoSolicitado ? 
+        parseFloat(solicitudData.montoSolicitado) : 0,
       plazoMeses: solicitudData.plazoMeses,
       proposito: solicitudData.proposito,
       tieneDeudas: solicitudData.tieneDeudas,
-      montoDeudas: solicitudData.montoDeudas || null,
+      // Convertir a número o null
+      montoDeudas: solicitudData.montoDeudas ? 
+        parseFloat(solicitudData.montoDeudas) : null,
 
       // 4. Referencias Personales
       refNombre1: solicitudData.refNombre1,
@@ -92,7 +84,7 @@ export const createSolicitud = async (solicitudData) => {
       updatedAt: FieldValue.serverTimestamp()
     };
 
-    // Guardar en Firestore
+    // Guardar en Firestore (una sola operación)
     const docRef = await addDoc(solicitudesCollection, newSolicitud);
 
     logger.info('Solicitud de crédito creada en Firestore', {
@@ -101,12 +93,20 @@ export const createSolicitud = async (solicitudData) => {
       email: newSolicitud.email
     });
 
-    // Obtener el documento creado
-    const createdDoc = await getDoc(docRef);
-    const createdSolicitud = docToObject(createdDoc);
-
-    // Formatear timestamps
-    return formatSolicitud(createdSolicitud);
+    // Construir respuesta directamente sin leer de nuevo (OPTIMIZACIÓN)
+    // Nota: Los timestamps se establecerán en el servidor, usamos fecha actual como aproximación
+    const now = new Date().toISOString();
+    
+    // Crear copia sin FieldValue objects para la respuesta
+    const responseData = { ...newSolicitud };
+    responseData.fechaSolicitud = now;
+    responseData.createdAt = now;
+    responseData.updatedAt = now;
+    
+    return {
+      id: docRef.id,
+      ...responseData
+    };
   } catch (error) {
     // Si es un error de conflicto, dejarlo pasar
     if (error instanceof ConflictError) {
@@ -125,16 +125,38 @@ export const createSolicitud = async (solicitudData) => {
 
 /**
  * Obtiene lista de solicitudes con paginación y búsqueda
+ * OPTIMIZADO: Usa límites de Firestore y orderBy en lugar de cargar todo en memoria
  */
-export const getSolicitudes = async ({ page = 1, limit = 10, search = '' }) => {
+export const getSolicitudes = async ({ page = 1, limit: pageLimit = 10, search = '' }) => {
   try {
     const solicitudesCollection = collection(SOLICITUDES_COLLECTION);
+    
+    let q;
+    const maxLimit = 100; // Límite máximo para evitar cargar demasiados documentos
+    
+    // Optimización: Si hay búsqueda, usar filtro en Firestore
+    if (search && search.length >= 3) {
+      // Búsqueda por número de documento (más eficiente con índices)
+      q = query(
+        solicitudesCollection,
+        where('numeroDocumento', '>=', search),
+        where('numeroDocumento', '<=', search + '\uf8ff'),
+        orderBy('numeroDocumento'),
+        limit(Math.min(pageLimit * page, maxLimit))
+      );
+    } else {
+      // Sin búsqueda: ordenar por fecha y paginar
+      q = query(
+        solicitudesCollection,
+        orderBy('createdAt', 'desc'),
+        limit(Math.min(pageLimit * page, maxLimit))
+      );
+    }
 
-    // Obtener todos los documentos
-    const snapshot = await getDocs(solicitudesCollection);
+    const snapshot = await getDocs(q);
     let solicitudes = snapshotToArray(snapshot);
 
-    // Filtrar en memoria si hay búsqueda
+    // Si hay búsqueda, filtrar también por nombre y email en memoria (para búsquedas cortas)
     if (search) {
       const searchLower = search.toLowerCase();
       solicitudes = solicitudes.filter(solicitud =>
@@ -144,30 +166,32 @@ export const getSolicitudes = async ({ page = 1, limit = 10, search = '' }) => {
       );
     }
 
-    // Ordenar por fecha de creación (más recientes primero)
-    solicitudes.sort((a, b) => {
-      const dateA = a.createdAt?.toDate?.() || a.createdAt || new Date(0);
-      const dateB = b.createdAt?.toDate?.() || b.createdAt || new Date(0);
-      return dateB - dateA;
-    });
+    // Ordenar por fecha si no se ordenó en la query
+    if (!search || search.length < 3) {
+      solicitudes.sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || a.createdAt || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || b.createdAt || new Date(0);
+        return dateB - dateA;
+      });
+    }
 
     // Calcular paginación
     const total = solicitudes.length;
-    const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
+    const totalPages = Math.ceil(total / pageLimit);
+    const startIndex = (page - 1) * pageLimit;
+    const endIndex = startIndex + pageLimit;
 
     const paginatedSolicitudes = solicitudes.slice(startIndex, endIndex);
 
     // Formatear timestamps
     const formattedSolicitudes = paginatedSolicitudes.map(formatSolicitud);
 
-    logger.debug('Solicitudes obtenidas de Firestore', { total, page, limit });
+    logger.debug('Solicitudes obtenidas de Firestore', { total, page, limit: pageLimit });
 
     return {
       solicitudes: formattedSolicitudes,
       page,
-      limit,
+      limit: pageLimit,
       total,
       totalPages
     };
@@ -210,6 +234,7 @@ export const getSolicitudById = async (id) => {
 
 /**
  * Actualiza una solicitud
+ * OPTIMIZADO: Eliminada doble lectura, construye respuesta directamente
  */
 export const updateSolicitud = async (id, updateData) => {
   try {
@@ -220,11 +245,21 @@ export const updateSolicitud = async (id, updateData) => {
       return null;
     }
 
-    // Preparar datos de actualización
-    const dataToUpdate = {
-      ...updateData,
-      updatedAt: FieldValue.serverTimestamp()
-    };
+    // Convertir números si están presentes
+    const dataToUpdate = { ...updateData };
+    
+    if (dataToUpdate.ingresosMensuales) {
+      dataToUpdate.ingresosMensuales = parseFloat(dataToUpdate.ingresosMensuales);
+    }
+    if (dataToUpdate.montoSolicitado) {
+      dataToUpdate.montoSolicitado = parseFloat(dataToUpdate.montoSolicitado);
+    }
+    if (dataToUpdate.montoDeudas !== undefined) {
+      dataToUpdate.montoDeudas = dataToUpdate.montoDeudas ? 
+        parseFloat(dataToUpdate.montoDeudas) : null;
+    }
+
+    dataToUpdate.updatedAt = FieldValue.serverTimestamp();
 
     // No permitir actualizar estos campos
     delete dataToUpdate.id;
@@ -238,11 +273,15 @@ export const updateSolicitud = async (id, updateData) => {
       fields: Object.keys(updateData)
     });
 
-    // Obtener el documento actualizado
-    const updatedDoc = await getDoc(solicitudDocRef);
-    const updatedSolicitud = docToObject(updatedDoc);
-
-    return formatSolicitud(updatedSolicitud);
+    // Construir respuesta combinando datos existentes con actualización (OPTIMIZACIÓN)
+    const existingData = docToObject(solicitudDoc);
+    const now = new Date().toISOString();
+    
+    return formatSolicitud({
+      ...existingData,
+      ...dataToUpdate,
+      updatedAt: now
+    });
   } catch (error) {
     logger.error('Error al actualizar solicitud en Firestore', {
       solicitudId: id,
