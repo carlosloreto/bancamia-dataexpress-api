@@ -46,8 +46,8 @@ import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "TU_API_KEY",
-  authDomain: "TU_AUTH_DOMAIN", // ej: bancamia-dataexpress-test1.firebaseapp.com
-  projectId: "TU_PROJECT_ID", // ej: bancamia-dataexpress-test1
+  authDomain: "TU_AUTH_DOMAIN", // ej: bancamia-dataexpress-test.firebaseapp.com
+  projectId: "TU_PROJECT_ID", // ej: bancamia-dataexpress-test (NOTA: Firebase usa "test", Google Cloud usa "test1")
   // ... otras configuraciones si las necesitas
 };
 

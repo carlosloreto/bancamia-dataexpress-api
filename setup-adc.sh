@@ -15,7 +15,9 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Variables del proyecto
-PROJECT_ID="bancamia-dataexpress-test"
+# IMPORTANTE: Este es el PROJECT_ID de Google Cloud (con "test1")
+# Firebase usa "bancamia-dataexpress-test" (sin el "1")
+PROJECT_ID="bancamia-dataexpress-test1"
 SERVICE_NAME="bancamia-dataexpress-api"
 REGION="southamerica-east1"
 SERVICE_ACCOUNT_NAME="firebase-admin"
