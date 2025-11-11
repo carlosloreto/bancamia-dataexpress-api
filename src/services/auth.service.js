@@ -132,13 +132,14 @@ export const syncUserToFirestore = async (uid, authUserData = null) => {
  * Verifica el token y sincroniza con Firestore
  */
 export const login = async (idToken) => {
+  let decodedToken = null;
   try {
     if (!idToken) {
       throw new ValidationError('Token de autenticación requerido');
     }
 
     // Verificar token con Firebase Auth
-    const decodedToken = await verifyIdToken(idToken);
+    decodedToken = await verifyIdToken(idToken);
 
     // Obtener información completa del usuario de Firebase Auth
     let authUser;
@@ -185,8 +186,8 @@ export const login = async (idToken) => {
       throw error;
     }
 
-    // Si es un error de base de datos (Firestore), intentar retornar datos básicos del token
-    if (error instanceof DatabaseError || error instanceof NotFoundError) {
+    // Si es un error de base de datos (Firestore) y tenemos el token decodificado, retornar datos básicos
+    if ((error instanceof DatabaseError || error instanceof NotFoundError) && decodedToken) {
       logger.warn('Error al sincronizar con Firestore, retornando datos del token', {
         error: error.message
       });
