@@ -179,10 +179,31 @@ export const login = async (idToken) => {
       token: idToken // Retornar el mismo token (el frontend ya lo tiene)
     };
   } catch (error) {
-    // Si es un error de autenticación, dejarlo pasar
+    // Si es un error de autenticación o validación, dejarlo pasar
     if (error instanceof AuthenticationError || 
         error instanceof ValidationError) {
       throw error;
+    }
+
+    // Si es un error de base de datos (Firestore), intentar retornar datos básicos del token
+    if (error instanceof DatabaseError || error instanceof NotFoundError) {
+      logger.warn('Error al sincronizar con Firestore, retornando datos del token', {
+        error: error.message
+      });
+      
+      // Retornar datos básicos del token sin sincronizar con Firestore
+      return {
+        user: {
+          id: decodedToken.uid,
+          firebaseUid: decodedToken.uid,
+          email: decodedToken.email,
+          emailVerified: decodedToken.email_verified || false,
+          name: decodedToken.name || '',
+          role: decodedToken.custom_claims?.role || 'user',
+          customClaims: decodedToken.custom_claims || {}
+        },
+        token: idToken
+      };
     }
 
     logger.error('Error en login', {
