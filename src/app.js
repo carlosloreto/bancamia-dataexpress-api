@@ -40,9 +40,21 @@ const app = express();
 // =====================================
 // Middlewares de seguridad
 // =====================================
-app.use(helmet()); // Headers de seguridad
+// Configurar Helmet con opciones menos restrictivas para Cloud Run
+app.use(helmet({
+  contentSecurityPolicy: false, // Deshabilitar CSP para APIs
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" } // Permitir cross-origin
+}));
 app.use(securityHeaders); // Headers adicionales
-app.use(cors()); // CORS
+// Configurar CORS para permitir todas las conexiones (scripts, navegadores, etc.)
+app.use(cors({
+  origin: '*', // Permitir todos los orígenes
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: false
+}));
 
 // =====================================
 // Middlewares de parsing

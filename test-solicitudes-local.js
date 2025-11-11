@@ -5,7 +5,13 @@
 
 // Usar fetch nativo de Node.js 18+
 
-const API_URL = 'http://localhost:3000/api/v1/solicitudes';
+// URL de la API - Cambiar entre local y producción
+const API_URL_LOCAL = 'http://localhost:3000/api/v1/solicitudes';
+const API_URL_PROD = 'https://bancamia-dataexpress-api-848620556467.southamerica-east1.run.app/api/v1/solicitudes';
+
+// Usar local para pruebas
+const API_URL = API_URL_LOCAL;
+const HEALTH_URL = API_URL.replace('/api/v1/solicitudes', '/health');
 
 // Colores para la consola
 const colors = {
@@ -74,30 +80,79 @@ function medirTiempo(fn) {
   };
 }
 
+// Función fetch con timeout y mejor manejo de errores
+async function fetchWithTimeout(url, options = {}, timeout = 30000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    log(`🌐 Conectando a: ${url}`, 'cyan');
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    if (error.name === 'AbortError' || error.message.includes('aborted')) {
+      throw new Error(`⏱️  Timeout después de ${timeout}ms - El servidor no respondió a tiempo`);
+    }
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      throw new Error(`🔌 Error de conexión: ${error.message} - Verifica que la URL sea correcta`);
+    }
+    throw error;
+  }
+}
+
 // Test 1: Crear solicitud
 async function testCrearSolicitud() {
   logSection('TEST 1: Crear Solicitud de Crédito');
   
+  log(`📤 Enviando POST a: ${API_URL}`, 'cyan');
+  log(`📋 Datos: ${JSON.stringify(solicitudPrueba).substring(0, 100)}...`, 'cyan');
+  
   const { resultado, tiempo, error } = await medirTiempo(async () => {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(solicitudPrueba)
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(JSON.stringify(errorData));
+    try {
+      const response = await fetchWithTimeout(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'Bancamia-Test-Script/1.0'
+        },
+        body: JSON.stringify(solicitudPrueba)
+      }, 60000); // 60 segundos de timeout
+      
+      log(`📥 Status: ${response.status} ${response.statusText}`, 'cyan');
+      log(`📋 Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`, 'cyan');
+      
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { message: await response.text() };
+        }
+        throw new Error(JSON.stringify(errorData, null, 2));
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      log(`❌ Error en fetch: ${err.message}`, 'red');
+      log(`📋 Stack: ${err.stack}`, 'red');
+      throw err;
     }
-    
-    return await response.json();
   })();
 
   if (error) {
     log(`❌ Error: ${error.message}`, 'red');
     log(`⏱️  Tiempo: ${tiempo}ms`, 'yellow');
+    log(`💡 Verifica:`, 'yellow');
+    log(`   - Que la URL sea correcta`, 'yellow');
+    log(`   - Que el servidor esté disponible`, 'yellow');
+    log(`   - Que los datos sean válidos`, 'yellow');
     return null;
   }
 
@@ -121,7 +176,7 @@ async function testObtenerPorId(solicitudId) {
   logSection('TEST 2: Obtener Solicitud por ID');
   
   const { resultado, tiempo, error } = await medirTiempo(async () => {
-    const response = await fetch(`${API_URL}/${solicitudId}`);
+    const response = await fetchWithTimeout(`${API_URL}/${solicitudId}`, {}, 30000);
     
     if (!response.ok) {
       const errorData = await response.json();
@@ -148,7 +203,7 @@ async function testListarSolicitudes() {
   logSection('TEST 3: Listar Solicitudes');
   
   const { resultado, tiempo, error } = await medirTiempo(async () => {
-    const response = await fetch(`${API_URL}?page=1&limit=10`);
+    const response = await fetchWithTimeout(`${API_URL}?page=1&limit=10`, {}, 30000);
     
     if (!response.ok) {
       const errorData = await response.json();
@@ -193,13 +248,13 @@ async function testActualizarSolicitud(solicitudId) {
   };
 
   const { resultado, tiempo, error } = await medirTiempo(async () => {
-    const response = await fetch(`${API_URL}/${solicitudId}`, {
+    const response = await fetchWithTimeout(`${API_URL}/${solicitudId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(datosActualizacion)
-    });
+    }, 30000);
     
     if (!response.ok) {
       const errorData = await response.json();
@@ -227,7 +282,7 @@ async function testBuscarSolicitudes() {
   logSection('TEST 5: Buscar Solicitudes');
   
   const { resultado, tiempo, error } = await medirTiempo(async () => {
-    const response = await fetch(`${API_URL}?search=Juan&page=1&limit=5`);
+    const response = await fetchWithTimeout(`${API_URL}?search=Juan&page=1&limit=5`, {}, 30000);
     
     if (!response.ok) {
       const errorData = await response.json();
@@ -264,13 +319,13 @@ async function testRendimiento() {
     };
     
     const { tiempo, error } = await medirTiempo(async () => {
-      const response = await fetch(API_URL, {
+      const response = await fetchWithTimeout(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(solicitud)
-      });
+      }, 30000);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -308,23 +363,50 @@ async function testRendimiento() {
 // Verificar que el servidor esté corriendo
 async function verificarServidor() {
   try {
-    const response = await fetch('http://localhost:3000/health');
+    log(`🔍 Verificando servidor en: ${API_URL.replace('/api/v1/solicitudes', '')}`, 'cyan');
+    log(`📡 Health check: ${HEALTH_URL}`, 'cyan');
+    
+    const response = await fetchWithTimeout(HEALTH_URL, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    }, 15000);
+    
+    log(`📥 Status: ${response.status} ${response.statusText}`, 'cyan');
+    
     if (response.ok) {
+      const data = await response.json();
       log('✅ Servidor está corriendo', 'green');
+      log(`📡 Ambiente: ${API_URL.includes('localhost') ? 'LOCAL' : 'PRODUCCIÓN'}`, 'blue');
+      log(`🌍 URL: ${API_URL.replace('/api/v1/solicitudes', '')}`, 'blue');
+      log(`⏱️  Uptime: ${data.uptime}s`, 'blue');
       return true;
+    } else {
+      const text = await response.text();
+      log(`⚠️  Servidor respondió con status ${response.status}`, 'yellow');
+      log(`📋 Respuesta: ${text.substring(0, 200)}`, 'yellow');
+      return false;
     }
   } catch (error) {
-    log('❌ Error: El servidor no está corriendo en http://localhost:3000', 'red');
-    log('💡 Ejecuta: npm run dev', 'yellow');
+    log(`❌ Error: No se pudo conectar al servidor`, 'red');
+    log(`🌍 URL intentada: ${API_URL.replace('/api/v1/solicitudes', '')}`, 'red');
+    log(`💬 Error: ${error.message}`, 'red');
+    log(`💡 Verifica:`, 'yellow');
+    log(`   - Que la URL sea correcta`, 'yellow');
+    log(`   - Que el servidor esté disponible`, 'yellow');
+    log(`   - Que no haya problemas de red/firewall`, 'yellow');
+    log(`   - Que Cloud Run esté desplegado y activo`, 'yellow');
     return false;
   }
-  return false;
 }
 
 // Función principal
 async function ejecutarPruebas() {
   console.clear();
-  log('\n🚀 INICIANDO PRUEBAS DEL ENDPOINT DE SOLICITUDES\n', 'cyan');
+  log('\n🚀 INICIANDO PRUEBAS DEL ENDPOINT DE SOLICITUDES', 'cyan');
+  log(`🌍 API: ${API_URL.includes('localhost') ? 'LOCAL' : 'PRODUCCIÓN'}`, 'cyan');
+  log(`📡 URL: ${API_URL}\n`, 'cyan');
   
   // Verificar servidor
   const servidorOk = await verificarServidor();
