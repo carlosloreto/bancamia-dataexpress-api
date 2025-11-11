@@ -3,46 +3,67 @@
 # ============================================
 
 steps:
+  # Paso 0: Leer variables del .env y exportarlas
+  - name: 'bash'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Leer .env y exportar variables (ignorar comentarios y líneas vacías)
+        if [ -f .env ]; then
+          export $(grep -v '^#' .env | grep -v '^$' | xargs)
+        fi
+        # Usar valores por defecto si no existen en .env
+        export FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-bancamia-dataexpress}
+        # Guardar en archivo para pasarlo al siguiente paso
+        echo "FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}" > /workspace/env_vars.txt
+        echo "Variables cargadas: FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}"
+  
   # Paso 1: Construir la imagen Docker
   - name: 'gcr.io/cloud-builders/docker'
     args: 
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/bancamia-dataexpress-api:$SHORT_SHA'
+      - 'gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/bancamia-dataexpress-api:latest'
+      - 'gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:latest'
       - '.'
   
   # Paso 2: Subir la imagen a Container Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/bancamia-dataexpress-api:$SHORT_SHA'
+      - 'gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA'
   
   # Paso 3: Desplegar en Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
+    entrypoint: 'bash'
     args:
-      - 'run'
-      - 'deploy'
-      - 'bancamia-dataexpress-api'
-      - '--image=gcr.io/$PROJECT_ID/bancamia-dataexpress-api:$SHORT_SHA'
-      - '--region=southamerica-east1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--port=8080'
-      - '--memory=1Gi'
-      - '--cpu=2'
-      - '--min-instances=0'
-      - '--max-instances=10'
-      - '--timeout=300'
-      - '--concurrency=80'
-      - '--service-account=firebase-admin@$PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=NODE_ENV=production,FIREBASE_PROJECT_ID=$PROJECT_ID'
+      - '-c'
+      - |
+        # Cargar variables del archivo
+        source /workspace/env_vars.txt
+        # IMPORTANTE: Usamos el MISMO proyecto para Google Cloud y Firebase
+        # PROJECT_ID = bancamia-dataexpress (mismo para Cloud Run y Firebase)
+        gcloud run deploy bancamia-dataexpress-api \
+          --image=gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA \
+          --region=southamerica-east1 \
+          --platform=managed \
+          --allow-unauthenticated \
+          --port=8080 \
+          --memory=1Gi \
+          --cpu=2 \
+          --min-instances=0 \
+          --max-instances=10 \
+          --timeout=300 \
+          --concurrency=80 \
+          --service-account=firebase-admin@bancamia-dataexpress.iam.gserviceaccount.com \
+          --set-env-vars=NODE_ENV=production,FIREBASE_PROJECT_ID=bancamia-dataexpress,FIREBASE_API_KEY=AIzaSyBUuImiMy_1QvZcE4Pg7t6cxjYbG1HT_5A,FIREBASE_AUTH_DOMAIN=bancamia-dataexpress.firebaseapp.com,FIREBASE_STORAGE_BUCKET=bancamia-dataexpress.firebasestorage.app,FIREBASE_MESSAGING_SENDER_ID=773449658013,FIREBASE_APP_ID=1:773449658013:web:1e0dafc4058fba91a7ae74,FIREBASE_MEASUREMENT_ID=G-PK1V1T3TD2 \
+          --project=bancamia-dataexpress
 
 images:
-  - 'gcr.io/$PROJECT_ID/bancamia-dataexpress-api:$SHORT_SHA'
-  - 'gcr.io/$PROJECT_ID/bancamia-dataexpress-api:latest'
+  - 'gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA'
+  - 'gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY
