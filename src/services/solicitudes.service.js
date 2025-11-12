@@ -118,22 +118,14 @@ export const createSolicitud = async (solicitudData) => {
  * Obtiene lista de solicitudes con paginación y búsqueda
  * OPTIMIZADO: Usa límites de Firestore y orderBy en lugar de cargar todo en memoria
  */
-export const getSolicitudes = async ({ page = 1, limit: pageLimit = 10, search = '', userId = null }) => {
+export const getSolicitudes = async ({ page = 1, limit: pageLimit = 10, search = '' }) => {
   try {
     const solicitudesCollection = collection(SOLICITUDES_COLLECTION);
     
     let q;
     const maxLimit = 100; // Límite máximo para evitar cargar demasiados documentos
     
-    // Si se especifica userId, filtrar por él
-    if (userId) {
-      q = query(
-        solicitudesCollection,
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc'),
-        limit(Math.min(pageLimit * page, maxLimit))
-      );
-    } else if (search && search.length >= 3) {
+    if (search && search.length >= 3) {
       // Búsqueda por número de documento (más eficiente con índices)
       q = query(
         solicitudesCollection,

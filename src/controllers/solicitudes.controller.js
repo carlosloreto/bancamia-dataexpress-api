@@ -260,13 +260,11 @@ export const getAllSolicitudes = async (req, res) => {
     isAdmin 
   });
 
-  // Si no es admin, solo puede ver sus propias solicitudes
-  // Esto se manejará en el servicio filtrando por userId
+  // Devolver todas las solicitudes sin filtrar por userId
   const result = await solicitudesService.getSolicitudes({
     page: parseInt(page),
     limit: parseInt(limit),
-    search,
-    userId: isAdmin ? null : currentUserId // Si es admin, null = todas; si no, solo las suyas
+    search
   });
   
   res.status(200).json({
