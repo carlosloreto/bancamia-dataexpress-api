@@ -182,7 +182,10 @@ app.get('/', (req, res) => {
 // =====================================
 // Rutas de la API
 // =====================================
+// Ruta con versión: /api/v1/*
 app.use(`${config.api.prefix}/${config.api.version}`, apiRoutes);
+// Ruta sin versión para compatibilidad: /api/*
+app.use(`${config.api.prefix}`, apiRoutes);
 
 // =====================================
 // Manejo de errores

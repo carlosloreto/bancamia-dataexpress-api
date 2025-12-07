@@ -56,11 +56,12 @@ export const createSolicitud = async (solicitudData) => {
       celularNegocio: solicitudData.celularNegocio || '',
 
       // Documento PDF (información del archivo en Firebase Storage)
+      // IMPORTANTE: El documento debe existir siempre, si es null hay un error
       documento: solicitudData.documento ? {
         url: solicitudData.documento.url || '',
         path: solicitudData.documento.path || '',
         fileName: solicitudData.documento.fileName || '',
-        originalName: solicitudData.documento.originalName || ''
+        originalName: solicitudData.documento.originalName || solicitudData.documento.fileName || ''
       } : null,
 
       // Campos del sistema
@@ -76,8 +77,9 @@ export const createSolicitud = async (solicitudData) => {
       Object.entries(newSolicitud).filter(([key, value]) => {
         // Eliminar undefined
         if (value === undefined) return false;
-        // Eliminar null en campos que no deberían ser null (excepto userId)
-        if (value === null && key !== 'userId') return false;
+        // Eliminar null en campos que no deberían ser null (excepto userId y documento)
+        // documento puede ser null si falla la generación, pero lo mantenemos para debugging
+        if (value === null && key !== 'userId' && key !== 'documento') return false;
         return true;
       })
     );

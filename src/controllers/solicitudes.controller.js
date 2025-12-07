@@ -240,14 +240,20 @@ export const createSolicitud = async (req, res) => {
   const tempId = `${Date.now()}_${solicitudData.numeroDocumento || 'unknown'}`;
   
   // Generar PDF con los datos de la solicitud
+  // IMPORTANTE: El PDF es obligatorio, si falla no se debe guardar la solicitud
   let documentoInfo = null;
   try {
     logger.info('Generando PDF de la solicitud', {
-      numeroDocumento: solicitudData.numeroDocumento
+      numeroDocumento: solicitudData.numeroDocumento,
+      email: solicitudData.email
     });
     
     // Generar el PDF
     const pdfBuffer = await generateSolicitudPDF(solicitudData);
+    
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      throw new Error('El PDF generado está vacío');
+    }
     
     // Nombre del archivo PDF
     const fileName = `solicitud_${solicitudData.numeroDocumento || 'unknown'}_${Date.now()}.pdf`;
@@ -264,20 +270,41 @@ export const createSolicitud = async (req, res) => {
       tempId
     );
     
+    if (!documentoInfo || !documentoInfo.url) {
+      throw new Error('No se pudo obtener la URL del PDF subido');
+    }
+    
     logger.info('PDF subido exitosamente a Firebase Storage', {
       url: documentoInfo.url,
-      path: documentoInfo.path
+      path: documentoInfo.path,
+      fileName: documentoInfo.fileName
     });
   } catch (pdfError) {
     logger.error('Error al generar o subir PDF', {
       error: pdfError.message,
-      stack: pdfError.stack
+      stack: pdfError.stack,
+      numeroDocumento: solicitudData.numeroDocumento
+    });
+    // Lanzar error para que no se guarde la solicitud sin PDF
+    throw new ValidationError('Error al generar el documento PDF', {
+      errors: [{
+        type: 'pdf_generation_error',
+        field: 'documento',
+        message: `No se pudo generar el documento PDF: ${pdfError.message}`
+      }]
+    });
+  }
+
+  // Verificar que documentoInfo se haya creado correctamente
+  if (!documentoInfo || !documentoInfo.url) {
+    logger.error('documentoInfo no válido después de generar PDF', {
+      documentoInfo
     });
     throw new ValidationError('Error al generar el documento PDF', {
       errors: [{
         type: 'pdf_generation_error',
         field: 'documento',
-        message: 'No se pudo generar el documento PDF. Por favor, intente nuevamente.'
+        message: 'El documento PDF no se generó correctamente'
       }]
     });
   }
