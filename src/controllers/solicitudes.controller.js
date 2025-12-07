@@ -4,6 +4,7 @@
  */
 
 import * as solicitudesService from '../services/solicitudes.service.js';
+import { uploadPDF } from '../lib/storage.js';
 import { ValidationError, NotFoundError, AuthorizationError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 
@@ -199,6 +200,9 @@ export const createSolicitud = async (req, res) => {
     hasBody: !!req.body,
     bodyType: typeof req.body,
     isArray: Array.isArray(req.body),
+    hasFile: !!req.file,
+    fileName: req.file?.originalname,
+    fileSize: req.file?.size,
     userId: req.user?.uid
   });
   
@@ -222,7 +226,8 @@ export const createSolicitud = async (req, res) => {
   logger.info('Recibiendo nueva solicitud de crédito', {
     email: solicitudData.email,
     numeroDocumento: solicitudData.numeroDocumento,
-    userId: solicitudData.userId
+    userId: solicitudData.userId,
+    hasDocument: !!req.file
   });
 
   // Validar datos
@@ -233,6 +238,46 @@ export const createSolicitud = async (req, res) => {
       errors: validationErrors
     });
   }
+
+  // Generar ID temporal para organizar el archivo en Storage
+  const tempId = `${Date.now()}_${solicitudData.numeroDocumento || 'unknown'}`;
+  
+  // Subir PDF a Firebase Storage
+  let documentoInfo = null;
+  if (req.file) {
+    try {
+      logger.info('Subiendo PDF a Firebase Storage', {
+        fileName: req.file.originalname,
+        size: req.file.size
+      });
+      
+      documentoInfo = await uploadPDF(
+        req.file.buffer,
+        req.file.originalname,
+        tempId
+      );
+      
+      logger.info('PDF subido exitosamente', {
+        url: documentoInfo.url,
+        path: documentoInfo.path
+      });
+    } catch (uploadError) {
+      logger.error('Error al subir PDF a Firebase Storage', {
+        error: uploadError.message,
+        stack: uploadError.stack
+      });
+      throw new ValidationError('Error al procesar el documento PDF', {
+        errors: [{
+          type: 'upload_error',
+          field: 'documento',
+          message: 'No se pudo subir el documento. Por favor, intente nuevamente.'
+        }]
+      });
+    }
+  }
+
+  // Agregar información del documento a los datos de la solicitud
+  solicitudData.documento = documentoInfo;
 
   // Crear solicitud en el servicio
   const newSolicitud = await solicitudesService.createSolicitud(solicitudData);

@@ -12,6 +12,7 @@ import { errorHandler, notFoundHandler } from './lib/errors.js';
 // Usar Client SDK (temporal) en lugar de Admin SDK
 import { initializeFirestore } from './lib/firestore-client.js';
 import { initializeAuth } from './lib/firebase-auth.js';
+import { initializeStorage } from './lib/storage.js';
 import {
   requestLogger,
   validateJSON,
@@ -40,6 +41,19 @@ try {
   initializeAuth();
 } catch (error) {
   logger.error('Error fatal al inicializar Firebase Auth', {
+    error: error.message
+  });
+  // En producción, podrías querer salir del proceso
+  if (config.isProduction) {
+    process.exit(1);
+  }
+}
+
+// Inicializar Firebase Storage
+try {
+  initializeStorage();
+} catch (error) {
+  logger.error('Error fatal al inicializar Firebase Storage', {
     error: error.message
   });
   // En producción, podrías querer salir del proceso

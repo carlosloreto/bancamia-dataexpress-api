@@ -24,4 +24,8 @@ Thumbs.db
 dist/
 build/
 
+# Test files
+test-file.txt
+solicitud-prueba.pdf
+
 

@@ -55,6 +55,14 @@ export const createSolicitud = async (solicitudData) => {
       direccionNegocio: solicitudData.direccionNegocio || '',
       celularNegocio: solicitudData.celularNegocio || '',
 
+      // Documento PDF (información del archivo en Firebase Storage)
+      documento: solicitudData.documento ? {
+        url: solicitudData.documento.url || '',
+        path: solicitudData.documento.path || '',
+        fileName: solicitudData.documento.fileName || '',
+        originalName: solicitudData.documento.originalName || ''
+      } : null,
+
       // Campos del sistema
       userId: solicitudData.userId || null, // Firebase UID del usuario que crea la solicitud
       fechaSolicitud: FieldValue.serverTimestamp(),
