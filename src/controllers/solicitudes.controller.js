@@ -5,6 +5,7 @@
 
 import * as solicitudesService from '../services/solicitudes.service.js';
 import { uploadPDF } from '../lib/storage.js';
+import { generateSolicitudPDF } from '../lib/pdf-generator.js';
 import { ValidationError, NotFoundError, AuthorizationError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 
@@ -200,9 +201,6 @@ export const createSolicitud = async (req, res) => {
     hasBody: !!req.body,
     bodyType: typeof req.body,
     isArray: Array.isArray(req.body),
-    hasFile: !!req.file,
-    fileName: req.file?.originalname,
-    fileSize: req.file?.size,
     userId: req.user?.uid
   });
   
@@ -226,8 +224,7 @@ export const createSolicitud = async (req, res) => {
   logger.info('Recibiendo nueva solicitud de crédito', {
     email: solicitudData.email,
     numeroDocumento: solicitudData.numeroDocumento,
-    userId: solicitudData.userId,
-    hasDocument: !!req.file
+    userId: solicitudData.userId
   });
 
   // Validar datos
@@ -242,38 +239,47 @@ export const createSolicitud = async (req, res) => {
   // Generar ID temporal para organizar el archivo en Storage
   const tempId = `${Date.now()}_${solicitudData.numeroDocumento || 'unknown'}`;
   
-  // Subir PDF a Firebase Storage
+  // Generar PDF con los datos de la solicitud
   let documentoInfo = null;
-  if (req.file) {
-    try {
-      logger.info('Subiendo PDF a Firebase Storage', {
-        fileName: req.file.originalname,
-        size: req.file.size
-      });
-      
-      documentoInfo = await uploadPDF(
-        req.file.buffer,
-        req.file.originalname,
-        tempId
-      );
-      
-      logger.info('PDF subido exitosamente', {
-        url: documentoInfo.url,
-        path: documentoInfo.path
-      });
-    } catch (uploadError) {
-      logger.error('Error al subir PDF a Firebase Storage', {
-        error: uploadError.message,
-        stack: uploadError.stack
-      });
-      throw new ValidationError('Error al procesar el documento PDF', {
-        errors: [{
-          type: 'upload_error',
-          field: 'documento',
-          message: 'No se pudo subir el documento. Por favor, intente nuevamente.'
-        }]
-      });
-    }
+  try {
+    logger.info('Generando PDF de la solicitud', {
+      numeroDocumento: solicitudData.numeroDocumento
+    });
+    
+    // Generar el PDF
+    const pdfBuffer = await generateSolicitudPDF(solicitudData);
+    
+    // Nombre del archivo PDF
+    const fileName = `solicitud_${solicitudData.numeroDocumento || 'unknown'}_${Date.now()}.pdf`;
+    
+    logger.info('PDF generado exitosamente', {
+      fileName,
+      size: pdfBuffer.length
+    });
+    
+    // Subir PDF generado a Firebase Storage
+    documentoInfo = await uploadPDF(
+      pdfBuffer,
+      fileName,
+      tempId
+    );
+    
+    logger.info('PDF subido exitosamente a Firebase Storage', {
+      url: documentoInfo.url,
+      path: documentoInfo.path
+    });
+  } catch (pdfError) {
+    logger.error('Error al generar o subir PDF', {
+      error: pdfError.message,
+      stack: pdfError.stack
+    });
+    throw new ValidationError('Error al generar el documento PDF', {
+      errors: [{
+        type: 'pdf_generation_error',
+        field: 'documento',
+        message: 'No se pudo generar el documento PDF. Por favor, intente nuevamente.'
+      }]
+    });
   }
 
   // Agregar información del documento a los datos de la solicitud

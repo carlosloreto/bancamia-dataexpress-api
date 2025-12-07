@@ -5,7 +5,6 @@
 import express from 'express';
 import * as solicitudesController from '../controllers/solicitudes.controller.js';
 import { authenticateToken } from '../middleware/auth.middleware.js';
-import { uploadPDF, handleUploadErrors, requirePDF } from '../middleware/upload.middleware.js';
 import { asyncHandler } from '../lib/errors.js';
 
 const router = express.Router();
@@ -14,11 +13,9 @@ const router = express.Router();
 console.log('✅ Ruta POST /solicitudes registrada');
 
 // POST /api/v1/solicitudes - Crear una nueva solicitud de crédito (público, sin auth)
-// Requiere multipart/form-data con campo 'documento' (PDF obligatorio)
+// Requiere application/json con los datos de la solicitud
+// El PDF se genera automáticamente en el servidor con los datos recibidos
 router.post('/', 
-  uploadPDF,
-  handleUploadErrors,
-  requirePDF,
   asyncHandler(solicitudesController.createSolicitud)
 );
 
