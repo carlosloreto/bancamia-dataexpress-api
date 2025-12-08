@@ -1,0 +1,15 @@
+{
+  "email": "test@example.com",
+  "autorizacionTratamientoDatos": true,
+  "autorizacionContacto": true,
+  "nombreCompleto": "Test Usuario Completo",
+  "tipoDocumento": "CC",
+  "numeroDocumento": "9999999999",
+  "fechaNacimiento": "1990-01-15",
+  "fechaExpedicionDocumento": "2020-01-15",
+  "ciudadNegocio": "201",
+  "direccionNegocio": "Calle Test 123 #45-67",
+  "celularNegocio": "3001234567"
+}
+
+

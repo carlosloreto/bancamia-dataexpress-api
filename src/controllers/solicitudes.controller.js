@@ -311,9 +311,25 @@ export const createSolicitud = async (req, res) => {
 
   // Agregar información del documento a los datos de la solicitud
   solicitudData.documento = documentoInfo;
+  
+  logger.info('Documento agregado a solicitudData antes de guardar', {
+    documento: {
+      url: documentoInfo.url,
+      path: documentoInfo.path,
+      fileName: documentoInfo.fileName,
+      originalName: documentoInfo.originalName
+    },
+    tieneUrl: !!documentoInfo.url
+  });
 
   // Crear solicitud en el servicio
   const newSolicitud = await solicitudesService.createSolicitud(solicitudData);
+  
+  logger.info('Solicitud creada, verificando documento en respuesta', {
+    solicitudId: newSolicitud.id,
+    tieneDocumento: !!newSolicitud.documento,
+    documentoUrl: newSolicitud.documento?.url || 'N/A'
+  });
   
   res.status(201).json({
     success: true,

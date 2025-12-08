@@ -3,6 +3,10 @@
  * Maneja la subida y gestión de archivos en Firebase Storage
  */
 
+import dotenv from 'dotenv';
+// Cargar variables de entorno (por si acaso no se cargaron antes)
+dotenv.config();
+
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getStorage, 
@@ -13,8 +17,8 @@ import {
 } from 'firebase/storage';
 import { logger } from './logger.js';
 
-// Configuración de Firebase (desde variables de entorno)
-const firebaseConfig = {
+// Función para obtener la configuración (lazy loading)
+const getFirebaseConfig = () => ({
   apiKey: process.env.FIREBASE_API_KEY,
   authDomain: process.env.FIREBASE_AUTH_DOMAIN,
   projectId: process.env.FIREBASE_PROJECT_ID,
@@ -22,7 +26,7 @@ const firebaseConfig = {
   messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.FIREBASE_APP_ID,
   measurementId: process.env.FIREBASE_MEASUREMENT_ID
-};
+});
 
 let storage = null;
 let isInitialized = false;
@@ -36,11 +40,36 @@ export const initializeStorage = () => {
   }
 
   try {
-    // Obtener la app existente o crear una nueva
-    const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    // Obtener configuración (lazy loading)
+    const firebaseConfig = getFirebaseConfig();
     
-    // Obtener instancia de Storage
-    storage = getStorage(app);
+    // Verificar que storageBucket esté configurado
+    if (!firebaseConfig.storageBucket) {
+      throw new Error('FIREBASE_STORAGE_BUCKET no está configurado en las variables de entorno');
+    }
+    
+    // Obtener la app existente o crear una nueva
+    let app;
+    const existingApps = getApps();
+    
+    if (existingApps.length > 0) {
+      // Usar la app existente (probablemente inicializada por firestore-client)
+      app = getApp();
+      logger.debug('Usando app de Firebase existente para Storage');
+    } else {
+      // Crear nueva app con toda la configuración
+      app = initializeApp(firebaseConfig);
+      logger.debug('Creando nueva app de Firebase para Storage');
+    }
+    
+    // Obtener instancia de Storage con bucket explícito (siempre necesario)
+    // El formato puede ser con o sin gs://, Firebase lo maneja
+    const bucketUrl = firebaseConfig.storageBucket.startsWith('gs://') 
+      ? firebaseConfig.storageBucket 
+      : `gs://${firebaseConfig.storageBucket}`;
+    
+    storage = getStorage(app, bucketUrl);
+    
     isInitialized = true;
     
     logger.info('Firebase Storage inicializado exitosamente', {

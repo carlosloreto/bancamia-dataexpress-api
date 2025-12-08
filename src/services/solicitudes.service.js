@@ -57,8 +57,8 @@ export const createSolicitud = async (solicitudData) => {
 
       // Documento PDF (información del archivo en Firebase Storage)
       // IMPORTANTE: El documento debe existir siempre, si es null hay un error
-      documento: solicitudData.documento ? {
-        url: solicitudData.documento.url || '',
+      documento: solicitudData.documento && solicitudData.documento.url ? {
+        url: solicitudData.documento.url,
         path: solicitudData.documento.path || '',
         fileName: solicitudData.documento.fileName || '',
         originalName: solicitudData.documento.originalName || solicitudData.documento.fileName || ''
@@ -72,17 +72,43 @@ export const createSolicitud = async (solicitudData) => {
       updatedAt: FieldValue.serverTimestamp()
     };
 
+    // Validar que el documento tenga URL antes de guardar
+    if (newSolicitud.documento && !newSolicitud.documento.url) {
+      logger.error('Documento sin URL válida', {
+        documento: newSolicitud.documento
+      });
+      throw new DatabaseError('El documento PDF no tiene una URL válida', {
+        originalError: 'documento.url está vacío o undefined'
+      });
+    }
+
     // Limpiar el objeto: eliminar campos undefined y valores inválidos (Firestore no los acepta)
     const cleanedSolicitud = Object.fromEntries(
       Object.entries(newSolicitud).filter(([key, value]) => {
         // Eliminar undefined
         if (value === undefined) return false;
         // Eliminar null en campos que no deberían ser null (excepto userId y documento)
-        // documento puede ser null si falla la generación, pero lo mantenemos para debugging
+        // Si documento es null, lo omitimos completamente (no lo guardamos en Firestore)
         if (value === null && key !== 'userId' && key !== 'documento') return false;
+        // Si documento es null, no lo guardamos (lo omitimos)
+        if (key === 'documento' && value === null) {
+          logger.info('Omitiendo campo documento (es null)');
+          return false;
+        }
+        // Eliminar objetos documento vacíos (sin URL)
+        if (key === 'documento' && value && typeof value === 'object' && !value.url) {
+          logger.warn('Eliminando documento sin URL válida');
+          return false;
+        }
         return true;
       })
     );
+    
+    logger.info('Objeto a guardar en Firestore (después de limpiar)', {
+      campos: Object.keys(cleanedSolicitud),
+      tieneDocumento: 'documento' in cleanedSolicitud,
+      documento: cleanedSolicitud.documento || 'NO INCLUIDO'
+    });
 
     // Guardar en Firestore (una sola operación)
     // Usar el objeto limpiado para evitar valores undefined
@@ -91,7 +117,9 @@ export const createSolicitud = async (solicitudData) => {
     logger.info('Solicitud de crédito creada en Firestore', {
       id: docRef.id,
       numeroDocumento: cleanedSolicitud.numeroDocumento,
-      email: cleanedSolicitud.email
+      email: cleanedSolicitud.email,
+      tieneDocumento: !!cleanedSolicitud.documento,
+      documentoUrl: cleanedSolicitud.documento?.url || 'N/A'
     });
 
     // Construir respuesta directamente sin leer de nuevo (OPTIMIZACIÓN)

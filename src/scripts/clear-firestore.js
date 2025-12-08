@@ -5,7 +5,9 @@
  */
 
 import readline from 'readline';
-import { initializeFirestore, collection, batch } from '../lib/firestore.js';
+import { initializeFirestore, collection, getDocs, deleteDoc } from '../lib/firestore-client.js';
+import { writeBatch } from 'firebase/firestore';
+import { getFirestoreDB } from '../lib/firestore-client.js';
 import { logger } from '../lib/logger.js';
 
 const rl = readline.createInterface({
@@ -31,7 +33,7 @@ function askConfirmation() {
 async function clearCollection(collectionName) {
   try {
     const collectionRef = collection(collectionName);
-    const snapshot = await collectionRef.get();
+    const snapshot = await getDocs(collectionRef);
     
     if (snapshot.empty) {
       logger.info(`Colección "${collectionName}" ya está vacía`);
@@ -43,9 +45,10 @@ async function clearCollection(collectionName) {
     // Eliminar en batches de 500 (límite de Firestore)
     const batchSize = 500;
     let deletedCount = 0;
+    const db = getFirestoreDB();
     
     while (deletedCount < snapshot.size) {
-      const deleteBatch = batch();
+      const deleteBatch = writeBatch(db);
       const docsToDelete = snapshot.docs.slice(deletedCount, deletedCount + batchSize);
       
       docsToDelete.forEach(doc => {
@@ -89,7 +92,7 @@ async function clearFirestore() {
     initializeFirestore();
     
     // Lista de colecciones a limpiar
-    const collections = ['users'];
+    const collections = ['solicitudes', 'users'];
     
     let totalDeleted = 0;
     
