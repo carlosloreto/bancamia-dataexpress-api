@@ -7,6 +7,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "build": "npm run build:check",
+    "build:check": "node --check src/index.js && node --check src/app.js",
+    "diagnostico": "npm run build:check && npm audit && echo Diagnostico completado",
     "test": "node tests/auth.test.js",
     "test:integration": "node tests/integration.auth.test.js",
     "test:solicitudes": "node tests/solicitudes.test.js",
