@@ -15,7 +15,7 @@ export const config = {
   
   // Configuración de la API
   api: {
-    version: process.env.API_VERSION || 'v2',
+    version: process.env.API_VERSION || 'v3',
     prefix: process.env.API_PREFIX || '/api'
   },
 
