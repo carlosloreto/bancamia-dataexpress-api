@@ -243,41 +243,63 @@ export const createSolicitud = async (req, res) => {
   // IMPORTANTE: El PDF es obligatorio, si falla no se debe guardar la solicitud
   let documentoInfo = null;
   try {
-    logger.info('Generando PDF de la solicitud', {
+    logger.info('[PDF-1] Iniciando generación de PDF', {
       numeroDocumento: solicitudData.numeroDocumento,
-      email: solicitudData.email
+      email: solicitudData.email,
+      tempId
     });
     
     // Generar el PDF
     const pdfBuffer = await generateSolicitudPDF(solicitudData);
     
     if (!pdfBuffer || pdfBuffer.length === 0) {
+      logger.error('[PDF-ERROR] PDF generado está vacío');
       throw new Error('El PDF generado está vacío');
     }
     
     // Nombre del archivo PDF
     const fileName = `solicitud_${solicitudData.numeroDocumento || 'unknown'}_${Date.now()}.pdf`;
     
-    logger.info('PDF generado exitosamente', {
+    logger.info('[PDF-2] PDF generado exitosamente', {
       fileName,
-      size: pdfBuffer.length
+      size: pdfBuffer.length,
+      bufferType: typeof pdfBuffer,
+      isBuffer: Buffer.isBuffer(pdfBuffer)
     });
     
     // Subir PDF generado a Firebase Storage
+    logger.info('[PDF-3] Iniciando subida a Firebase Storage', {
+      fileName,
+      tempId,
+      bufferSize: pdfBuffer.length
+    });
+    
     documentoInfo = await uploadPDF(
       pdfBuffer,
       fileName,
       tempId
     );
     
+    logger.info('[PDF-4] Respuesta de uploadPDF recibida', {
+      documentoInfo: documentoInfo ? JSON.stringify(documentoInfo) : 'null',
+      tieneUrl: !!documentoInfo?.url,
+      tipo: typeof documentoInfo
+    });
+    
     if (!documentoInfo || !documentoInfo.url) {
+      logger.error('[PDF-ERROR] documentoInfo inválido después de uploadPDF', {
+        documentoInfo: documentoInfo ? JSON.stringify(documentoInfo) : 'null',
+        tieneUrl: !!documentoInfo?.url
+      });
       throw new Error('No se pudo obtener la URL del PDF subido');
     }
     
-    logger.info('PDF subido exitosamente a Firebase Storage', {
+    logger.info('[PDF-5] PDF subido exitosamente a Firebase Storage', {
       url: documentoInfo.url,
       path: documentoInfo.path,
-      fileName: documentoInfo.fileName
+      fileName: documentoInfo.fileName,
+      originalName: documentoInfo.originalName,
+      documentoInfoCompleto: JSON.stringify(documentoInfo)
     });
   } catch (pdfError) {
     logger.error('Error al generar o subir PDF', {
@@ -310,25 +332,45 @@ export const createSolicitud = async (req, res) => {
   }
 
   // Agregar información del documento a los datos de la solicitud
+  logger.info('[CONTROLLER-1] Antes de agregar documento a solicitudData', {
+    documentoInfo: documentoInfo ? JSON.stringify(documentoInfo) : 'null',
+    solicitudDataKeys: Object.keys(solicitudData),
+    tieneDocumentoAntes: 'documento' in solicitudData
+  });
+  
   solicitudData.documento = documentoInfo;
   
-  logger.info('Documento agregado a solicitudData antes de guardar', {
-    documento: {
-      url: documentoInfo.url,
-      path: documentoInfo.path,
-      fileName: documentoInfo.fileName,
-      originalName: documentoInfo.originalName
-    },
-    tieneUrl: !!documentoInfo.url
+  logger.info('[CONTROLLER-2] Documento agregado a solicitudData', {
+    documento: documentoInfo ? JSON.stringify(documentoInfo) : 'null',
+    tieneDocumentoDespues: 'documento' in solicitudData,
+    solicitudDataCompleto: JSON.stringify(solicitudData),
+    documentoUrl: documentoInfo?.url || 'N/A'
   });
 
   // Crear solicitud en el servicio
+  logger.info('[CONTROLLER-3] Llamando a solicitudesService.createSolicitud', {
+    solicitudDataKeys: Object.keys(solicitudData),
+    tieneDocumento: 'documento' in solicitudData,
+    documento: solicitudData.documento ? JSON.stringify(solicitudData.documento) : 'null'
+  });
+  
   const newSolicitud = await solicitudesService.createSolicitud(solicitudData);
   
-  logger.info('Solicitud creada, verificando documento en respuesta', {
+  logger.info('[CONTROLLER-4] Solicitud creada, verificando respuesta del servicio', {
     solicitudId: newSolicitud.id,
-    tieneDocumento: !!newSolicitud.documento,
-    documentoUrl: newSolicitud.documento?.url || 'N/A'
+    tieneDocumento: 'documento' in newSolicitud,
+    documentoPresente: !!newSolicitud.documento,
+    documento: newSolicitud.documento ? JSON.stringify(newSolicitud.documento) : 'null',
+    documentoUrl: newSolicitud.documento?.url || 'N/A',
+    newSolicitudKeys: Object.keys(newSolicitud)
+  });
+  
+  logger.info('[CONTROLLER-5] Enviando respuesta al cliente', {
+    responseData: JSON.stringify({
+      success: true,
+      message: 'Solicitud de crédito creada exitosamente',
+      data: newSolicitud
+    })
   });
   
   res.status(201).json({

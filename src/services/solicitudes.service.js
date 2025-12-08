@@ -40,6 +40,14 @@ export const createSolicitud = async (solicitudData) => {
       return false; // Por defecto false si no está definido o es inválido
     };
 
+    logger.info('[SERVICE-1] Recibiendo solicitudData en servicio', {
+      solicitudDataKeys: Object.keys(solicitudData),
+      tieneDocumento: 'documento' in solicitudData,
+      documento: solicitudData.documento ? JSON.stringify(solicitudData.documento) : 'null',
+      documentoType: typeof solicitudData.documento,
+      documentoUrl: solicitudData.documento?.url || 'N/A'
+    });
+
     // Preparar datos de la solicitud con los nuevos campos
     const newSolicitud = {
       // Campos del formulario
@@ -104,21 +112,28 @@ export const createSolicitud = async (solicitudData) => {
       })
     );
     
-    logger.info('Objeto a guardar en Firestore (después de limpiar)', {
+    logger.info('[SERVICE-2] Objeto después de limpiar (antes de guardar)', {
       campos: Object.keys(cleanedSolicitud),
       tieneDocumento: 'documento' in cleanedSolicitud,
-      documento: cleanedSolicitud.documento || 'NO INCLUIDO'
+      documento: cleanedSolicitud.documento ? JSON.stringify(cleanedSolicitud.documento) : 'NO INCLUIDO',
+      documentoType: cleanedSolicitud.documento ? typeof cleanedSolicitud.documento : 'undefined',
+      cleanedSolicitudCompleto: JSON.stringify(cleanedSolicitud)
     });
 
     // Guardar en Firestore (una sola operación)
     // Usar el objeto limpiado para evitar valores undefined
+    logger.info('[SERVICE-3] Guardando en Firestore...', {
+      tieneDocumento: 'documento' in cleanedSolicitud
+    });
+    
     const docRef = await addDoc(solicitudesCollection, cleanedSolicitud);
 
-    logger.info('Solicitud de crédito creada en Firestore', {
+    logger.info('[SERVICE-4] Solicitud guardada en Firestore', {
       id: docRef.id,
       numeroDocumento: cleanedSolicitud.numeroDocumento,
       email: cleanedSolicitud.email,
-      tieneDocumento: !!cleanedSolicitud.documento,
+      tieneDocumento: 'documento' in cleanedSolicitud,
+      documento: cleanedSolicitud.documento ? JSON.stringify(cleanedSolicitud.documento) : 'NO INCLUIDO',
       documentoUrl: cleanedSolicitud.documento?.url || 'N/A'
     });
 
@@ -126,16 +141,36 @@ export const createSolicitud = async (solicitudData) => {
     // Nota: Los timestamps se establecerán en el servidor, usamos fecha actual como aproximación
     const now = new Date().toISOString();
     
+    logger.info('[SERVICE-5] Construyendo respuesta', {
+      cleanedSolicitudKeys: Object.keys(cleanedSolicitud),
+      tieneDocumentoEnCleaned: 'documento' in cleanedSolicitud
+    });
+    
     // Crear copia sin FieldValue objects para la respuesta
     const responseData = { ...cleanedSolicitud };
     responseData.fechaSolicitud = now;
     responseData.createdAt = now;
     responseData.updatedAt = now;
     
-    return {
+    logger.info('[SERVICE-6] Respuesta construida', {
+      responseDataKeys: Object.keys(responseData),
+      tieneDocumento: 'documento' in responseData,
+      documento: responseData.documento ? JSON.stringify(responseData.documento) : 'NO INCLUIDO',
+      documentoUrl: responseData.documento?.url || 'N/A'
+    });
+    
+    const finalResponse = {
       id: docRef.id,
       ...responseData
     };
+    
+    logger.info('[SERVICE-7] Retornando respuesta final', {
+      finalResponseKeys: Object.keys(finalResponse),
+      tieneDocumento: 'documento' in finalResponse,
+      documento: finalResponse.documento ? JSON.stringify(finalResponse.documento) : 'NO INCLUIDO'
+    });
+    
+    return finalResponse;
   } catch (error) {
     // Si es un error de conflicto, dejarlo pasar
     if (error instanceof ConflictError) {
