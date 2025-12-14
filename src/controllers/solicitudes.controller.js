@@ -28,13 +28,19 @@ const validateSolicitudData = (data) => {
     'fechaExpedicionDocumento',
     'ciudadNegocio',
     'direccionNegocio',
-    'celularNegocio'
+    'celularNegocio',
+    'referencia'
   ];
 
   // Validar campos requeridos
   requiredFields.forEach(field => {
     // Para campos booleanos, verificar que existan (pueden ser false)
     if (field === 'autorizacionTratamientoDatos' || field === 'autorizacionContacto') {
+      if (data[field] === undefined || data[field] === null) {
+        missingFields.push(field);
+      }
+    } else if (field === 'referencia') {
+      // Para campo numérico, verificar que exista y sea válido
       if (data[field] === undefined || data[field] === null) {
         missingFields.push(field);
       }
@@ -180,6 +186,24 @@ const validateSolicitudData = (data) => {
         type: 'invalid_format',
         field: 'celularNegocio',
         message: 'El formato del celular del negocio es inválido'
+      });
+    }
+  }
+
+  // Validar referencia (debe ser un número entero válido)
+  if (data.referencia !== undefined && data.referencia !== null) {
+    const referenciaNum = Number(data.referencia);
+    if (isNaN(referenciaNum) || !Number.isFinite(referenciaNum)) {
+      errors.push({
+        type: 'invalid_format',
+        field: 'referencia',
+        message: 'La referencia debe ser un número válido'
+      });
+    } else if (!Number.isInteger(referenciaNum)) {
+      errors.push({
+        type: 'invalid_format',
+        field: 'referencia',
+        message: 'La referencia debe ser un número entero'
       });
     }
   }

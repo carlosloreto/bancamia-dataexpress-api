@@ -62,6 +62,9 @@ export const createSolicitud = async (solicitudData) => {
       ciudadNegocio: solicitudData.ciudadNegocio || '',
       direccionNegocio: solicitudData.direccionNegocio || '',
       celularNegocio: solicitudData.celularNegocio || '',
+      referencia: solicitudData.referencia !== undefined && solicitudData.referencia !== null 
+        ? Math.floor(Number(solicitudData.referencia)) 
+        : null,
 
       // Documento PDF (información del archivo en Firebase Storage)
       // IMPORTANTE: El documento debe existir siempre, si es null hay un error

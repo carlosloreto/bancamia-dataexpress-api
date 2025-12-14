@@ -108,6 +108,10 @@ export const generateSolicitudPDF = async (solicitudData) => {
 
       // Email
       doc.text(`Email: ${solicitudData.email || 'N/A'}`)
+         .moveDown(0.3);
+
+      // Referencia
+      doc.text(`Referencia: ${solicitudData.referencia !== undefined && solicitudData.referencia !== null ? solicitudData.referencia : 'N/A'}`)
          .moveDown(1);
 
       // ============================================
