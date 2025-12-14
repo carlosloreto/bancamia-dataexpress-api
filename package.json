@@ -16,6 +16,7 @@
     "test:pdf": "node tests/pdf-generator.test.js",
     "test:pdf-storage": "node tests/pdf-storage.test.js",
     "test:quick": "node tests/quick.test.js",
+    "test:security": "node tests/security.test.js",
     "seed": "node src/scripts/seed-firestore.js",
     "seed:force": "FORCE_SEED=true node src/scripts/seed-firestore.js",
     "clear": "node src/scripts/clear-firestore.js",

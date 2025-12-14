@@ -127,6 +127,7 @@ export const asyncHandler = (fn) => {
  */
 export const errorHandler = (err, req, res, next) => {
   let error = err;
+  const isProduction = process.env.NODE_ENV === 'production';
 
   // Si no es un AppError, convertirlo
   if (!(error instanceof AppError)) {
@@ -137,26 +138,48 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Log del error
+  // Log del error (siempre incluir stack trace en logs del servidor)
   if (error.statusCode >= 500) {
     logger.error(`Error ${error.statusCode}: ${error.message}`, {
       code: error.code,
       details: error.details,
-      stack: error.stack,
+      stack: error.stack, // Stack trace solo en logs del servidor
       url: req.originalUrl,
-      method: req.method
+      method: req.method,
+      ip: req.ip || req.connection?.remoteAddress
     });
   } else {
     logger.warn(`Error ${error.statusCode}: ${error.message}`, {
       code: error.code,
       details: error.details,
       url: req.originalUrl,
-      method: req.method
+      method: req.method,
+      ip: req.ip || req.connection?.remoteAddress
     });
   }
 
+  // Preparar respuesta para el cliente
+  // En producción, NO exponer stack traces ni detalles sensibles
+  const response = {
+    error: {
+      message: error.message,
+      code: error.code,
+      statusCode: error.statusCode
+    }
+  };
+
+  // Solo incluir detalles en desarrollo o si es un error de validación (400)
+  if (!isProduction || error.statusCode === 400) {
+    if (error.details) {
+      response.error.details = error.details;
+    }
+  }
+
+  // NUNCA exponer stack traces al cliente, incluso en desarrollo
+  // Los stack traces solo van a los logs del servidor
+
   // Respuesta al cliente
-  res.status(error.statusCode).json(error.toJSON());
+  res.status(error.statusCode).json(response);
 };
 
 /**

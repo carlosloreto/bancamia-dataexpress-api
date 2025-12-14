@@ -1,6 +1,12 @@
 /**
  * Middleware de rate limiting básico
  * Limita el número de requests por IP para endpoints de autenticación
+ * 
+ * NOTA: Este rate limiting usa almacenamiento en memoria y no funciona perfectamente
+ * en arquitecturas distribuidas (múltiples instancias de Cloud Run).
+ * Cada instancia tiene su propio contador.
+ * 
+ * TODO: Migrar a Redis o Cloud Memorystore para rate limiting distribuido
  */
 
 import { logger } from '../lib/logger.js';
@@ -11,15 +17,42 @@ const requestCounts = new Map();
 
 /**
  * Limpia contadores antiguos cada 5 minutos
+ * Optimizado para mejor rendimiento
  */
 setInterval(() => {
   const now = Date.now();
+  const keysToDelete = [];
+  
   for (const [key, value] of requestCounts.entries()) {
     if (now > value.expiresAt) {
-      requestCounts.delete(key);
+      keysToDelete.push(key);
     }
   }
+  
+  // Eliminar en batch para mejor rendimiento
+  keysToDelete.forEach(key => requestCounts.delete(key));
+  
+  if (keysToDelete.length > 0) {
+    logger.debug(`Rate limiting: limpiados ${keysToDelete.length} contadores expirados`);
+  }
 }, 5 * 60 * 1000);
+
+/**
+ * Obtiene la IP real del cliente considerando proxies y Cloud Run
+ */
+const getClientIp = (req) => {
+  // Cloud Run y proxies agregan X-Forwarded-For
+  // Formato: "client-ip, proxy1-ip, proxy2-ip"
+  const forwardedFor = req.headers['x-forwarded-for'];
+  if (forwardedFor) {
+    // Tomar la primera IP (cliente real)
+    const ips = forwardedFor.split(',').map(ip => ip.trim());
+    return ips[0] || req.ip || req.connection?.remoteAddress || 'unknown';
+  }
+  
+  // Fallback a IPs estándar
+  return req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown';
+};
 
 /**
  * Middleware de rate limiting
@@ -30,7 +63,7 @@ setInterval(() => {
  */
 export const rateLimit = ({ windowMs = 60000, maxRequests = 5, message = 'Demasiadas solicitudes' }) => {
   return (req, res, next) => {
-    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const ip = getClientIp(req);
     const key = `${ip}-${req.path}`;
     const now = Date.now();
 

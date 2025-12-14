@@ -76,9 +76,26 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" } // Permitir cross-origin
 }));
 app.use(securityHeaders); // Headers adicionales
-// Configurar CORS para permitir todas las conexiones (scripts, navegadores, etc.)
+
+// Configurar CORS para permitir solo dominios específicos
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+  'https://bancamia-dataexpress.web.app',
+  'http://localhost:3000',
+  'http://localhost:3001'
+];
+
 app.use(cors({
-  origin: '*', // Permitir todos los orígenes
+  origin: (origin, callback) => {
+    // Permitir requests sin origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.warn('CORS bloqueado para origen no permitido', { origin });
+      callback(new Error('No permitido por CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
   exposedHeaders: ['Content-Length', 'Content-Type'],
@@ -90,7 +107,10 @@ app.use(cors({
 
 // Manejar preflight OPTIONS explícitamente (importante para Cloud Run)
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
   res.sendStatus(204);
@@ -102,13 +122,13 @@ app.options('*', (req, res) => {
 // IMPORTANTE: express.json debe ir ANTES de otros middlewares que usen req.body
 // Configuración flexible para Cloud Run (puede agregar headers adicionales)
 app.use(express.json({ 
-  limit: '10mb',
+  limit: '2mb', // Reducido de 10mb para prevenir DoS
   strict: false, // Permitir JSON flexible (Cloud Run puede modificar Content-Type)
   type: ['application/json', 'application/json; charset=utf-8', 'text/json'] // Múltiples tipos aceptados
 })); // Parse JSON
 app.use(express.urlencoded({ 
   extended: true, 
-  limit: '10mb',
+  limit: '2mb', // Reducido de 10mb para prevenir DoS
   type: ['application/x-www-form-urlencoded', 'application/x-www-form-urlencoded; charset=utf-8'] // Múltiples tipos aceptados
 })); // Parse URL-encoded
 app.use(compression()); // Comprimir respuestas
