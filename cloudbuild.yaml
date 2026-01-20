@@ -4,10 +4,10 @@
 
 steps:
   # Paso 0: Leer variables del .env y exportarlas
-  - name: 'bash'
-    entrypoint: 'bash'
+  - name: "bash"
+    entrypoint: "bash"
     args:
-      - '-c'
+      - "-c"
       - |
         # Leer .env y exportar variables (ignorar comentarios y líneas vacías)
         if [ -f .env ]; then
@@ -32,28 +32,28 @@ steps:
           echo "FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}"
         } > /workspace/env_vars.txt
         echo "Variables cargadas desde .env"
-  
+
   # Paso 1: Construir la imagen Docker
-  - name: 'gcr.io/cloud-builders/docker'
-    args: 
-      - 'build'
-      - '-t'
-      - 'gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA'
-      - '-t'
-      - 'gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:latest'
-      - '.'
-  
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA"
+      - "-t"
+      - "gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:latest"
+      - "."
+
   # Paso 2: Subir la imagen a Container Registry
-  - name: 'gcr.io/cloud-builders/docker'
+  - name: "gcr.io/cloud-builders/docker"
     args:
-      - 'push'
-      - 'gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA'
-  
+      - "push"
+      - "gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA"
+
   # Paso 3: Desplegar en Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'bash'
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "bash"
     args:
-      - '-c'
+      - "-c"
       - |
         # Cargar variables del archivo
         source /workspace/env_vars.txt
@@ -92,14 +92,12 @@ steps:
           --max-instances=10 \
           --timeout=300 \
           --concurrency=80 \
-          --service-account=firebase-adminsdk-fbsvc@bancamia-dataexpress.iam.gserviceaccount.com \
           --set-env-vars="${ENV_VARS}" \
           --project=bancamia-dataexpress
 
 images:
-  - 'gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA'
-  - 'gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:latest'
+  - "gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:$SHORT_SHA"
+  - "gcr.io/bancamia-dataexpress/bancamia-dataexpress-api:latest"
 
 options:
   logging: CLOUD_LOGGING_ONLY
-
