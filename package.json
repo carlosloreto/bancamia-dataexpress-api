@@ -37,6 +37,7 @@
     "express": "^4.19.2",
     "firebase": "^12.5.0",
     "firebase-admin": "^13.5.0",
+    "googleapis": "^170.1.0",
     "helmet": "^7.1.0",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",

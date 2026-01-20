@@ -8,6 +8,7 @@ import { uploadPDF } from '../lib/storage.js';
 import { generateSolicitudPDF } from '../lib/pdf-generator.js';
 import { ValidationError, NotFoundError, AuthorizationError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
+import * as emailService from '../services/email.service.js';
 
 /**
  * Valida los campos requeridos de la solicitud
@@ -86,9 +87,9 @@ const validateSolicitudData = (data) => {
 
   // Validar autorizaciones (pueden ser booleanos o strings 'true'/'false')
   if (data.autorizacionTratamientoDatos !== undefined) {
-    const isValid = typeof data.autorizacionTratamientoDatos === 'boolean' || 
-                    data.autorizacionTratamientoDatos === 'true' || 
-                    data.autorizacionTratamientoDatos === 'false';
+    const isValid = typeof data.autorizacionTratamientoDatos === 'boolean' ||
+      data.autorizacionTratamientoDatos === 'true' ||
+      data.autorizacionTratamientoDatos === 'false';
     if (!isValid) {
       errors.push({
         type: 'invalid_format',
@@ -99,9 +100,9 @@ const validateSolicitudData = (data) => {
   }
 
   if (data.autorizacionContacto !== undefined) {
-    const isValid = typeof data.autorizacionContacto === 'boolean' || 
-                    data.autorizacionContacto === 'true' || 
-                    data.autorizacionContacto === 'false';
+    const isValid = typeof data.autorizacionContacto === 'boolean' ||
+      data.autorizacionContacto === 'true' ||
+      data.autorizacionContacto === 'false';
     if (!isValid) {
       errors.push({
         type: 'invalid_format',
@@ -113,7 +114,7 @@ const validateSolicitudData = (data) => {
 
   // Validar formato de fecha (YYYY-MM-DD)
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  
+
   if (data.fechaNacimiento) {
     if (!dateRegex.test(data.fechaNacimiento)) {
       errors.push({
@@ -124,7 +125,7 @@ const validateSolicitudData = (data) => {
     } else {
       const fecha = new Date(data.fechaNacimiento);
       const hoy = new Date();
-      
+
       if (isNaN(fecha.getTime())) {
         errors.push({
           type: 'invalid_format',
@@ -138,7 +139,7 @@ const validateSolicitudData = (data) => {
           message: 'La fecha de nacimiento debe ser anterior a hoy'
         });
       }
-      
+
       // Validar edad mínima (18 años)
       const edad = Math.floor((hoy - fecha) / (365.25 * 24 * 60 * 60 * 1000));
       if (edad < 18) {
@@ -161,7 +162,7 @@ const validateSolicitudData = (data) => {
     } else {
       const fecha = new Date(data.fechaExpedicionDocumento);
       const hoy = new Date();
-      
+
       if (isNaN(fecha.getTime())) {
         errors.push({
           type: 'invalid_format',
@@ -227,9 +228,9 @@ export const createSolicitud = async (req, res) => {
     isArray: Array.isArray(req.body),
     userId: req.user?.uid
   });
-  
+
   const solicitudData = req.body;
-  
+
   if (!solicitudData || Object.keys(solicitudData).length === 0) {
     logger.error('Body vacío o no parseado', {
       contentType: req.get('Content-Type'),
@@ -239,12 +240,12 @@ export const createSolicitud = async (req, res) => {
       errors: [{ type: 'empty_body', message: 'No se recibieron datos en el cuerpo de la solicitud' }]
     });
   }
-  
+
   // Agregar userId del usuario autenticado
   if (req.user && req.user.uid) {
     solicitudData.userId = req.user.uid;
   }
-  
+
   logger.info('Recibiendo nueva solicitud de crédito', {
     email: solicitudData.email,
     numeroDocumento: solicitudData.numeroDocumento,
@@ -253,7 +254,7 @@ export const createSolicitud = async (req, res) => {
 
   // Validar datos
   const validationErrors = validateSolicitudData(solicitudData);
-  
+
   if (validationErrors.length > 0) {
     throw new ValidationError('Datos de solicitud inválidos', {
       errors: validationErrors
@@ -262,7 +263,7 @@ export const createSolicitud = async (req, res) => {
 
   // Generar ID temporal para organizar el archivo en Storage
   const tempId = `${Date.now()}_${solicitudData.numeroDocumento || 'unknown'}`;
-  
+
   // Generar PDF con los datos de la solicitud
   // IMPORTANTE: El PDF es obligatorio, si falla no se debe guardar la solicitud
   let documentoInfo = null;
@@ -272,44 +273,44 @@ export const createSolicitud = async (req, res) => {
       email: solicitudData.email,
       tempId
     });
-    
+
     // Generar el PDF
     const pdfBuffer = await generateSolicitudPDF(solicitudData);
-    
+
     if (!pdfBuffer || pdfBuffer.length === 0) {
       logger.error('[PDF-ERROR] PDF generado está vacío');
       throw new Error('El PDF generado está vacío');
     }
-    
+
     // Nombre del archivo PDF
     const fileName = `solicitud_${solicitudData.numeroDocumento || 'unknown'}_${Date.now()}.pdf`;
-    
+
     logger.info('[PDF-2] PDF generado exitosamente', {
       fileName,
       size: pdfBuffer.length,
       bufferType: typeof pdfBuffer,
       isBuffer: Buffer.isBuffer(pdfBuffer)
     });
-    
+
     // Subir PDF generado a Firebase Storage
     logger.info('[PDF-3] Iniciando subida a Firebase Storage', {
       fileName,
       tempId,
       bufferSize: pdfBuffer.length
     });
-    
+
     documentoInfo = await uploadPDF(
       pdfBuffer,
       fileName,
       tempId
     );
-    
+
     logger.info('[PDF-4] Respuesta de uploadPDF recibida', {
       documentoInfo: documentoInfo ? JSON.stringify(documentoInfo) : 'null',
       tieneUrl: !!documentoInfo?.url,
       tipo: typeof documentoInfo
     });
-    
+
     if (!documentoInfo || !documentoInfo.url) {
       logger.error('[PDF-ERROR] documentoInfo inválido después de uploadPDF', {
         documentoInfo: documentoInfo ? JSON.stringify(documentoInfo) : 'null',
@@ -317,7 +318,7 @@ export const createSolicitud = async (req, res) => {
       });
       throw new Error('No se pudo obtener la URL del PDF subido');
     }
-    
+
     logger.info('[PDF-5] PDF subido exitosamente a Firebase Storage', {
       url: documentoInfo.url,
       path: documentoInfo.path,
@@ -361,9 +362,9 @@ export const createSolicitud = async (req, res) => {
     solicitudDataKeys: Object.keys(solicitudData),
     tieneDocumentoAntes: 'documento' in solicitudData
   });
-  
+
   solicitudData.documento = documentoInfo;
-  
+
   logger.info('[CONTROLLER-2] Documento agregado a solicitudData', {
     documento: documentoInfo ? JSON.stringify(documentoInfo) : 'null',
     tieneDocumentoDespues: 'documento' in solicitudData,
@@ -377,9 +378,19 @@ export const createSolicitud = async (req, res) => {
     tieneDocumento: 'documento' in solicitudData,
     documento: solicitudData.documento ? JSON.stringify(solicitudData.documento) : 'null'
   });
-  
+
   const newSolicitud = await solicitudesService.createSolicitud(solicitudData);
-  
+
+  // 🆕 Enviar email de confirmación (asíncrono, no bloquea respuesta)
+  emailService.sendConfirmationEmail(newSolicitud)
+    .catch(error => {
+      logger.error('Error al enviar email de confirmación', {
+        solicitudId: newSolicitud.id,
+        email: newSolicitud.email,
+        error: error.message
+      });
+    });
+
   logger.info('[CONTROLLER-4] Solicitud creada, verificando respuesta del servicio', {
     solicitudId: newSolicitud.id,
     tieneDocumento: 'documento' in newSolicitud,
@@ -388,7 +399,7 @@ export const createSolicitud = async (req, res) => {
     documentoUrl: newSolicitud.documento?.url || 'N/A',
     newSolicitudKeys: Object.keys(newSolicitud)
   });
-  
+
   logger.info('[CONTROLLER-5] Enviando respuesta al cliente', {
     responseData: JSON.stringify({
       success: true,
@@ -396,7 +407,7 @@ export const createSolicitud = async (req, res) => {
       data: newSolicitud
     })
   });
-  
+
   res.status(201).json({
     success: true,
     message: 'Solicitud de crédito creada exitosamente',
@@ -411,13 +422,13 @@ export const getAllSolicitudes = async (req, res) => {
   const { page = 1, limit = 10, search } = req.query;
   const { uid: currentUserId, customClaims } = req.user || {};
   const isAdmin = customClaims?.role === 'admin' || req.user?.role === 'admin';
-  
-  logger.info('Obteniendo lista de solicitudes', { 
-    page, 
-    limit, 
+
+  logger.info('Obteniendo lista de solicitudes', {
+    page,
+    limit,
     search,
     userId: currentUserId,
-    isAdmin 
+    isAdmin
   });
 
   // Devolver todas las solicitudes sin filtrar por userId
@@ -426,7 +437,7 @@ export const getAllSolicitudes = async (req, res) => {
     limit: parseInt(limit),
     search
   });
-  
+
   res.status(200).json({
     success: true,
     data: result.solicitudes,
@@ -446,11 +457,11 @@ export const getSolicitudById = async (req, res) => {
   const { id } = req.params;
   const { uid: currentUserId, customClaims } = req.user || {};
   const isAdmin = customClaims?.role === 'admin' || req.user?.role === 'admin';
-  
+
   logger.info('Obteniendo solicitud por ID', { id, userId: currentUserId, isAdmin });
-  
+
   const solicitud = await solicitudesService.getSolicitudById(id);
-  
+
   if (!solicitud) {
     throw new NotFoundError(`Solicitud con ID ${id} no encontrada`);
   }
@@ -459,7 +470,7 @@ export const getSolicitudById = async (req, res) => {
   if (!isAdmin && solicitud.userId !== currentUserId) {
     throw new AuthorizationError('No tienes permiso para ver esta solicitud');
   }
-  
+
   res.status(200).json({
     success: true,
     data: solicitud
@@ -474,12 +485,12 @@ export const updateSolicitud = async (req, res) => {
   const updateData = req.body;
   const { uid: currentUserId, customClaims } = req.user || {};
   const isAdmin = customClaims?.role === 'admin' || req.user?.role === 'admin';
-  
+
   logger.info('Actualizando solicitud', { id, fields: Object.keys(updateData), userId: currentUserId, isAdmin });
 
   // Obtener la solicitud para verificar ownership
   const solicitud = await solicitudesService.getSolicitudById(id);
-  
+
   if (!solicitud) {
     throw new NotFoundError(`Solicitud con ID ${id} no encontrada`);
   }
@@ -488,7 +499,7 @@ export const updateSolicitud = async (req, res) => {
   if (!isAdmin && solicitud.userId !== currentUserId) {
     throw new AuthorizationError('No tienes permiso para actualizar esta solicitud');
   }
-  
+
   // Si se están actualizando campos, validar solo formato (no campos faltantes)
   if (Object.keys(updateData).length > 0) {
     // Crear objeto temporal con valores por defecto para validar formato
@@ -506,24 +517,24 @@ export const updateSolicitud = async (req, res) => {
       celularNegocio: updateData.celularNegocio || '3001234567',
       ...updateData
     };
-    
+
     const validationErrors = validateSolicitudData(tempData);
     // Filtrar solo errores de formato, no de campos faltantes
     const formatErrors = validationErrors.filter(err => err.type !== 'missing_fields');
-    
+
     if (formatErrors.length > 0) {
       throw new ValidationError('Datos de actualización inválidos', {
         errors: formatErrors
       });
     }
   }
-  
+
   const updatedSolicitud = await solicitudesService.updateSolicitud(id, updateData);
-  
+
   if (!updatedSolicitud) {
     throw new NotFoundError(`Solicitud con ID ${id} no encontrada`);
   }
-  
+
   res.status(200).json({
     success: true,
     message: 'Solicitud actualizada exitosamente',
@@ -538,12 +549,12 @@ export const deleteSolicitud = async (req, res) => {
   const { id } = req.params;
   const { uid: currentUserId, customClaims } = req.user || {};
   const isAdmin = customClaims?.role === 'admin' || req.user?.role === 'admin';
-  
+
   logger.info('Eliminando solicitud', { id, userId: currentUserId, isAdmin });
 
   // Obtener la solicitud para verificar ownership
   const solicitud = await solicitudesService.getSolicitudById(id);
-  
+
   if (!solicitud) {
     throw new NotFoundError(`Solicitud con ID ${id} no encontrada`);
   }
@@ -552,13 +563,13 @@ export const deleteSolicitud = async (req, res) => {
   if (!isAdmin && solicitud.userId !== currentUserId) {
     throw new AuthorizationError('No tienes permiso para eliminar esta solicitud');
   }
-  
+
   const deleted = await solicitudesService.deleteSolicitud(id);
-  
+
   if (!deleted) {
     throw new NotFoundError(`Solicitud con ID ${id} no encontrada`);
   }
-  
+
   res.status(200).json({
     success: true,
     message: 'Solicitud eliminada exitosamente'
